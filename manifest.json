@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "OmniTime: Time Tracking",
   "version": "2.0.0",
-  "description": "Retrieves time tracking information for ticket management systems from a configurable external time tracking provider and embeds it as an overlay.",
+  "description": "Retrieves time tracking data from an external provider and embeds it into ticket management systems.",
   "author": "Hristo Chonov",
   "permissions": [
     "storage",
