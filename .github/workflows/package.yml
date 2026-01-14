@@ -1,0 +1,31 @@
+name: Package OmniTime Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Extension
+        run: |
+          chmod +x build_extension.sh
+          ./build_extension.sh "${{ github.ref_name }}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/omnitime_*.zip
+            dist/omnitime_*.xpi
+          draft: false
+          prerelease: false
+          generate_release_notes: true
