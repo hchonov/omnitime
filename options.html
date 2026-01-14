@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      width: 400px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+    }
+
+    .instance {
+      background: #f4f4f4;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <h3>API Settings</h3>
+  <input type="text" id="apiUrl" placeholder="https://your.api.com/api/v1/tracked-time">
+  <input type="password" id="apiKey" placeholder="API Key">
+
+  <h3>Platform Instances</h3>
+  <div class="section"
+    style="font-size: 13px; color: #555; background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #dde;">
+    <strong>How to Use:</strong>
+    <ol style="margin: 5px 0 5px 20px; padding: 0;">
+      <li>Add your Instance URL below (e.g., <code>gitlab.com</code>).</li>
+      <li>Click <strong>Save All Settings</strong> and <strong>Grant Permissions</strong> when prompted.</li>
+      <li>Go to your ticket (Issue/MR).</li>
+      <li>For Gitlab click the <strong>"Time tracking"</strong> header in the sidebar to view the report.</li>
+    </ol>
+  </div>
+  <div id="instances"></div>
+  <button id="addInstance">+ Add Instance</button>
+
+  <div class="form-group" style="margin-top: 20px; display: flex; align-items: center;">
+    <input type="checkbox" id="debugMode" style="width: auto; margin-right: 10px;">
+    <label for="debugMode" style="margin-bottom: 0;">Enable Debug Mode (Show Console Logs)</label>
+  </div>
+
+  <hr>
+  <button id="save" style="background: #107c10; color: white; padding: 10px; border: none; cursor:pointer;">Save All
+    Settings</button>
+
+  <p style="margin-top: 20px; font-size: 12px; text-align: center;">
+    <a href="privacy_policy.md" target="_blank" style="color: #666; text-decoration: none;">Privacy Policy</a>
+  </p>
+
+  <script src="options.js"></script>
+</body>
+
+</html>
