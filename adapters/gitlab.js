@@ -63,7 +63,11 @@ if (typeof window.GitlabAdapter === 'undefined') {
             const projectId = document.body.dataset.projectId;
 
             // Issue IID is usually in URL: /namespace/project/issues/123
-            const issueIid = window.location.pathname.split('/issues/')[1]?.split('/')[0];
+            let issueIid = window.location.pathname.split('/issues/')[1]?.split('/')[0];
+            if (!issueIid) {
+                // In newer GitLab versions, it might be /work_items/ instead of /issues/.
+                issueIid = window.location.pathname.split('/work_items/')[1]?.split('/')[0];
+            }
 
             if (!projectId || !issueIid) {
                 throw new Error('Could not extract GitLab Project ID or Issue ID.');

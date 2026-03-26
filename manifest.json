@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OmniTime: Time Tracking",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "Retrieves time tracking data from an external provider and embeds it into ticket management systems.",
   "author": "Hristo Chonov",
   "permissions": [
