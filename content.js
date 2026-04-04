@@ -49,6 +49,7 @@ async function init() {
   // Since we load adapters globally via manifest, check for them
   if (systemType === 'gitlab' && window.GitlabAdapter) {
     adapter = new window.GitlabAdapter();
+    adapter.debugMode = omniDebugMode;
   } else {
     // Future support for 'jira', 'azure', etc.
     warn(`No adapter found for system type '${systemType}'.`);
@@ -110,13 +111,8 @@ function attachClick(target, settings, instanceConfig, adapter) {
     try {
       // Get metadata from adapter
       const metadata = adapter.getMetadata();
-      const projectId = metadata.project_id;
-      const issueIid = metadata.issue_id;
-
-      // Construct URL
-      // Use window.location.origin for the source parameter (e.g. https://git.1xinternet.de)
       const source = encodeURIComponent(window.location.origin);
-      const url = `${settings.apiUrl}?source=${source}&project_id=${projectId}&issue_id=${issueIid}`;
+      const url = `${settings.apiUrl}?source=${source}&project_id=${metadata.project_id}&issue_id=${metadata.issue_id}`;
 
       const response = await chrome.runtime.sendMessage({
         action: 'FETCH_TIME_DATA',
@@ -143,35 +139,17 @@ function showModal(initialText) {
 
   const overlay = document.createElement('div');
   overlay.className = 'omnitime-modal-overlay';
-
-  const modal = document.createElement('div');
-  modal.className = 'omnitime-modal';
-
-  const header = document.createElement('div');
-  header.className = 'omnitime-modal-header';
-
-  const h3 = document.createElement('h3');
-  h3.textContent = 'Tracking report';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'omnitime-modal-close';
-  closeBtn.innerHTML = '&times;'; // entity is safe here, or use textContent = '×'
-
-  header.appendChild(h3);
-  header.appendChild(closeBtn);
-
-  const content = document.createElement('div');
-  content.className = 'omnitime-modal-content';
-
-  const initialMsg = document.createElement('div');
-  initialMsg.style.cssText = 'padding: 20px; text-align: center; color: #666;';
-  initialMsg.textContent = initialText;
-
-  content.appendChild(initialMsg);
-
-  modal.appendChild(header);
-  modal.appendChild(content);
-  overlay.appendChild(modal);
+  overlay.innerHTML = `
+    <div class="omnitime-modal">
+      <div class="omnitime-modal-header">
+        <h3>Tracking report</h3>
+        <button class="omnitime-modal-close">&times;</button>
+      </div>
+      <div class="omnitime-modal-content">
+        <div style="padding: 20px; text-align: center; color: #666;">${initialText}</div>
+      </div>
+    </div>
+  `;
 
   document.body.appendChild(overlay);
 
@@ -201,98 +179,61 @@ function updateModalContent(data) {
 
   const entries = data.tracked_time || [];
   const totalSum = data.total_sum || 0;
+  const details = data.details || [];
 
   if (entries.length === 0 && totalSum === 0) {
-    contentDiv.innerHTML = '<div style="padding: 20px; text-align: center;">No time tracking entries found.</div>';
+    contentDiv.innerHTML = '<div style="padding: 20px; text-align: center;">No time tracking data found.</div>';
     return;
   }
 
+  contentDiv.innerHTML = '';
 
-
-  let rows = '';
-  entries.forEach(u => {
-    rows += `
-      <tr>
-        <td>${u.user}</td>
-        <td>${formatTime(u.time_spent)}</td>
-      </tr>
-    `;
-  });
-
-
-
-  // Add total row
-  rows += `
-    <tr class="omnitime-total-row">
-      <td>Total</td>
-      <td>${formatTime(totalSum)}</td>
-    </tr>
+  // 1. Summary Table (Per User)
+  const summaryTable = document.createElement('table');
+  summaryTable.className = 'omnitime-table';
+  summaryTable.innerHTML = `
+    <thead><tr><th>User</th><th>Total Time</th></tr></thead>
+    <tbody>
+      ${entries.map(u => `<tr><td>${u.user}</td><td>${formatTime(u.time_spent)}</td></tr>`).join('')}
+      <tr class="omnitime-total-row"><td>Total</td><td>${formatTime(totalSum)}</td></tr>
+    </tbody>
   `;
+  contentDiv.appendChild(summaryTable);
 
-  // Conditionally hide "User" header text if there are no named user entries
-  const userHeaderText = entries.length > 0 ? 'User' : '';
-
-  contentDiv.innerHTML = ''; // Clear previous content safely
-
-  const table = document.createElement('table');
-  table.className = 'omnitime-table';
-
-  const thead = document.createElement('thead');
-  const trHead = document.createElement('tr');
-
-  const thUser = document.createElement('th');
-  thUser.textContent = entries.length > 0 ? 'User' : '';
-
-  const thTime = document.createElement('th');
-  thTime.textContent = 'Time Spent';
-
-  trHead.appendChild(thUser);
-  trHead.appendChild(thTime);
-  thead.appendChild(trHead);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-
-  entries.forEach(u => {
-    const tr = document.createElement('tr');
-
-    const tdUser = document.createElement('td');
-    tdUser.textContent = u.user;
-
-    const tdTime = document.createElement('td');
-    tdTime.textContent = formatTime(u.time_spent);
-
-    tr.appendChild(tdUser);
-    tr.appendChild(tdTime);
-    tbody.appendChild(tr);
-  });
-
-  // Total row
-  const trTotal = document.createElement('tr');
-  trTotal.className = 'omnitime-total-row';
-
-  const tdTotalLabel = document.createElement('td');
-  tdTotalLabel.textContent = 'Total';
-
-  const tdTotalValue = document.createElement('td');
-  tdTotalValue.textContent = formatTime(totalSum);
-
-  trTotal.appendChild(tdTotalLabel);
-  trTotal.appendChild(tdTotalValue);
-  tbody.appendChild(trTotal);
-
-  table.appendChild(tbody);
-  contentDiv.appendChild(table);
+  // 2. Detailed Logs (Collapsible)
+  if (details.length > 0) {
+    const detailsContainer = document.createElement('div');
+    detailsContainer.className = 'omnitime-details-container';
+    detailsContainer.innerHTML = `
+      <details class="omnitime-details-collapsible">
+        <summary>View detailed logs</summary>
+        <div class="omnitime-details-scroll">
+          <table class="omnitime-table omnitime-details-table">
+            <thead>
+              <tr><th>Date</th><th>User</th><th>Time</th><th>Comment</th></tr>
+            </thead>
+            <tbody>
+              ${details.map(d => `
+                <tr>
+                  <td>${d.start_time}</td>
+                  <td>${d.user}</td>
+                  <td>${formatTime(d.time_spent)}</td>
+                  <td class="omnitime-comment" title="${d.comment || ''}">${d.comment || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    `;
+    contentDiv.appendChild(detailsContainer);
+  }
 }
 
 function updateModalError(msg) {
   const contentDiv = document.querySelector('.omnitime-modal-content');
   if (contentDiv) {
-    contentDiv.innerHTML = '';
-    const errDiv = document.createElement('div');
-    errDiv.style.cssText = 'padding: 20px; text-align: center; color: #d9534f;';
-    errDiv.textContent = msg;
-    contentDiv.appendChild(errDiv);
+    contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: #d9534f;">${msg}</div>`;
   }
 }
 
