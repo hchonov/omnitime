@@ -1,0 +1,9 @@
+{
+  "name": "omnitime-dev",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local dev preview harness for the OmniTime extension UI. Not part of the shipped extension.",
+  "scripts": {
+    "dev": "node dev/server.mjs"
+  }
+}

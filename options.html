@@ -35,6 +35,25 @@
   <input type="text" id="apiUrl" placeholder="https://your.api.com/api/v1/tracked-time">
   <input type="password" id="apiKey" placeholder="API Key">
 
+  <details style="margin-top: 6px;">
+    <summary style="cursor: pointer; font-size: 13px; color: #555;">Advanced &mdash; API endpoints (optional)</summary>
+    <div style="font-size: 12px; color: #777; margin: 8px 0;">
+      Leave blank to derive these from the tracked-time URL above. Override only if your server uses different paths.
+      The placeholder shows the value that will be used.
+    </div>
+    <label style="font-size: 12px; color: #555;">My day (own daily/weekly trackings)
+      <input type="text" id="epMyDay" placeholder="(derived)"></label>
+    <label style="font-size: 12px; color: #555;">Frequently tracked issues
+      <input type="text" id="epFrequent" placeholder="(derived)"></label>
+    <label style="font-size: 12px; color: #555;">Issue search
+      <input type="text" id="epSearch" placeholder="(derived)"></label>
+    <div style="font-size: 12px; color: #999; margin-top: 4px;">
+      These power the new <strong>My day</strong> tab and time logging. If your server only has the
+      classic <code>tracked-time</code> endpoint, the <strong>This issue</strong> report still works and
+      <strong>My day</strong> simply shows a "not available yet" notice.
+    </div>
+  </details>
+
   <h3>Platform Instances</h3>
   <div class="section"
     style="font-size: 13px; color: #555; background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #dde;">

@@ -34,6 +34,25 @@ function createInstanceRow(hostUrl = '', systemType = 'gitlab') {
   container.appendChild(div);
 }
 
+// Derive the default endpoint URLs from the tracked-time URL.
+function deriveEndpointDefaults(apiUrl) {
+  const base = (apiUrl || '').trim().replace(/\/tracked-time\/?$/, '');
+  if (!base) return { myDay: '', frequent: '', search: '' };
+  return {
+    myDay: base + '/my-tracked-time',
+    frequent: base + '/frequent-issues',
+    search: base + '/issue-search',
+  };
+}
+
+// Show the value that will actually be used as the placeholder for each field.
+function updateEndpointPlaceholders() {
+  const d = deriveEndpointDefaults(document.getElementById('apiUrl').value);
+  document.getElementById('epMyDay').placeholder = d.myDay || '(derived)';
+  document.getElementById('epFrequent').placeholder = d.frequent || '(derived)';
+  document.getElementById('epSearch').placeholder = d.search || '(derived)';
+}
+
 // Load saved settings
 document.addEventListener('DOMContentLoaded', async () => {
   const settings = await chrome.storage.sync.get(['apiUrl', 'apiKey', 'instances', 'debug']);
@@ -51,6 +70,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     createInstanceRow(); // Add one empty row by default
   }
+
+  // Endpoint overrides (blank = derive from the tracked-time URL).
+  const eps = settings.endpoints || {};
+  if (eps.myDay) document.getElementById('epMyDay').value = eps.myDay;
+  if (eps.frequent) document.getElementById('epFrequent').value = eps.frequent;
+  if (eps.search) document.getElementById('epSearch').value = eps.search;
+  updateEndpointPlaceholders();
+  document.getElementById('apiUrl').addEventListener('input', updateEndpointPlaceholders);
 });
 
 // Save all settings
@@ -102,7 +129,7 @@ document.getElementById('save').addEventListener('click', async () => {
       await chrome.scripting.registerContentScripts([{
         id: 'omnitime-cs',
         matches: origins,
-        js: ['adapters/gitlab.js', 'content.js'],
+        js: ['adapters/gitlab.js', 'core.js', 'content.js'],
         css: ['style.css'],
         runAt: 'document_idle'
       }]);
@@ -113,8 +140,15 @@ document.getElementById('save').addEventListener('click', async () => {
     return;
   }
 
+  // Collect optional endpoint overrides (only store non-empty values).
+  const endpoints = {};
+  const epVal = (id) => document.getElementById(id).value.trim();
+  if (epVal('epMyDay')) endpoints.myDay = epVal('epMyDay');
+  if (epVal('epFrequent')) endpoints.frequent = epVal('epFrequent');
+  if (epVal('epSearch')) endpoints.search = epVal('epSearch');
+
   // 3. Save Settings
-  chrome.storage.sync.set({ apiUrl, apiKey, instances, debug: debugMode }, () => {
+  chrome.storage.sync.set({ apiUrl, apiKey, instances, debug: debugMode, endpoints }, () => {
     alert('Settings saved and permissions granted!');
   });
 });

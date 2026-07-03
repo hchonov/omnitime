@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniTime preview</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; background: #f6f7f9; color: #333; }
+    .dev-bar { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; max-width: 680px; }
+    .dev-bar h1 { font-size: 16px; margin: 0 0 12px; }
+    .dev-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .dev-row label { font-size: 13px; color: #555; }
+    .dev-row input { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+    .dev-open { background: #1f75cb; color: #fff; border: none; padding: 9px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .dev-note { font-size: 12px; color: #888; margin-top: 8px; }
+    .dev-mode { display: flex; gap: 14px; }
+    .dev-presets button { font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; }
+    .dev-sep { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="dev-bar">
+    <h1>OmniTime preview harness</h1>
+
+    <div class="dev-row">
+      <label style="flex:1">API URL (tracked-time endpoint)
+        <input id="apiUrl" placeholder="https://your.site/api/v1/tracked-time" style="width:100%"></label>
+    </div>
+    <div class="dev-row">
+      <label style="flex:1">API key (your personal token)
+        <input id="apiKey" type="password" placeholder="paste token" style="width:100%"></label>
+    </div>
+    <div class="dev-row dev-presets">
+      <button id="preset-reset" type="button">Reset to .env defaults</button>
+      <span style="font-size:12px;color:#999;">(siblings my-tracked-time / frequent-issues / issue-search / time-entry are derived automatically)</span>
+    </div>
+
+    <hr class="dev-sep">
+
+    <div class="dev-row dev-mode">
+      <label><input type="radio" name="mode" value="live" checked> Live (calls the API URL above)</label>
+      <label><input type="radio" name="mode" value="fixtures"> Fixtures (offline)</label>
+    </div>
+    <div class="dev-row">
+      <label><input type="checkbox" id="oldapi"> Simulate old API (only <code>tracked-time</code> exists)</label>
+    </div>
+    <div class="dev-row">
+      <label>source <input id="ctx-source" size="26"></label>
+      <label>project_id <input id="ctx-project" size="6"></label>
+      <label>issue_id <input id="ctx-issue" size="6"></label>
+    </div>
+    <div class="dev-row">
+      <label style="flex:1">issue label <input id="ctx-label" style="width:100%"></label>
+    </div>
+    <button class="dev-open" id="open">Open OmniTime</button>
+    <div class="dev-note">This button stands in for clicking the host "Time tracking" element. Live mode forwards through the local dev server (no CORS), injecting your token. Point the API URL at the local site or the live (old) API to test both. Values persist in this browser.</div>
+  </div>
+
+  <script src="env.js"></script>
+  <script src="../core.js"></script>
+  <script src="fixtures.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    // Defaults come from .env via the server (window.OMNI_ENV); no site-specific
+    // values are hard-coded here. localStorage holds any manual overrides.
+    const E = window.OMNI_ENV || {};
+    const seed = (id, lsKey, envVal) => { $(id).value = localStorage.getItem('omni_dev_' + lsKey) || envVal || ''; };
+    seed('apiUrl', 'apiurl', E.apiUrl);
+    seed('ctx-source', 'source', E.source);
+    seed('ctx-project', 'project', E.projectId);
+    seed('ctx-issue', 'issue', E.issueId);
+    seed('ctx-label', 'label', E.issueLabel);
+    $('apiKey').placeholder = E.hasKey ? 'using .env key (optional override)' : 'paste token';
+
+    const persist = (id, lsKey) => $(id).addEventListener('input', () => localStorage.setItem('omni_dev_' + lsKey, $(id).value));
+    persist('apiUrl', 'apiurl'); persist('ctx-source', 'source'); persist('ctx-project', 'project');
+    persist('ctx-issue', 'issue'); persist('ctx-label', 'label');
+    // Key is session-only (never persisted, never hard-coded) - blank => server uses the .env key.
+
+    $('preset-reset').addEventListener('click', () => {
+      ['apiurl', 'source', 'project', 'issue', 'label'].forEach((k) => localStorage.removeItem('omni_dev_' + k));
+      seed('apiUrl', 'apiurl', E.apiUrl); seed('ctx-source', 'source', E.source);
+      seed('ctx-project', 'project', E.projectId); seed('ctx-issue', 'issue', E.issueId);
+      seed('ctx-label', 'label', E.issueLabel); $('apiKey').value = '';
+    });
+
+    // Live transport: forward the (absolute) request through the dev server so
+    // the page avoids CORS/TLS; the server injects the token we pass it.
+    const liveTransport = (method, url, body) =>
+      fetch('/__forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, method, body, apiKey: $('apiKey').value.trim() }),
+      }).then(async (r) => {
+        const text = await r.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+        if (!r.ok) { const e = new Error((data && data.message) || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+        return data;
+      });
+
+    const fixtureTransport = (method, url) => new Promise((resolve) => {
+      setTimeout(() => resolve(window.OMNI_FIXTURES.match(method, url)), 150);
+    });
+
+    // Wrap a transport to simulate a server with only the classic tracked-time
+    // endpoint (the new ones 404).
+    const withOldApiSim = (transport) => (method, url, body) => {
+      if (!/\/tracked-time(\?|$)/.test(url)) {
+        const e = new Error('Not Found'); e.status = 404; return Promise.reject(e);
+      }
+      return transport(method, url, body);
+    };
+
+    $('open').addEventListener('click', () => {
+      const mode = document.querySelector('input[name=mode]:checked').value;
+      let transport = mode === 'fixtures' ? fixtureTransport : liveTransport;
+      if ($('oldapi').checked) transport = withOldApiSim(transport);
+      // Re-probe capability on every open so the toggles/URL above take effect.
+      if (window.OmniTime.__resetCapability) window.OmniTime.__resetCapability();
+      const apiClient = window.OmniTime.createApiClient(transport, $('apiUrl').value.trim());
+      const context = {
+        source: $('ctx-source').value.trim(),
+        project_id: $('ctx-project').value.trim(),
+        issue_id: $('ctx-issue').value.trim(),
+        issue_label: $('ctx-label').value.trim(),
+      };
+      window.OmniTime.openModal({ apiClient, context });
+    });
+  </script>
+</body>
+</html>

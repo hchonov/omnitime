@@ -34,11 +34,18 @@ echo "Setting up build stage..."
 # Let's use cp -r and then remove excluded items
 # Use rsync to copy files, excluding build artifacts and version control
 echo "Using rsync..."
-rsync -av --exclude="$DIST_DIR" --exclude="$BUILD_STAGE" --exclude=".git" --exclude=".github" --exclude="*.DS_Store" . "$BUILD_STAGE/"
+rsync -av --exclude="$DIST_DIR" --exclude="$BUILD_STAGE" --exclude=".git" --exclude=".github" --exclude=".gitignore" --exclude="dev" --exclude="package.json" --exclude="node_modules" --exclude=".env" --exclude=".env.example" --exclude=".idea" --exclude=".vscode" --exclude="*.DS_Store" . "$BUILD_STAGE/"
 # Remove things we don't want in the build
 rm -rf "$BUILD_STAGE/$DIST_DIR"
 rm -rf "$BUILD_STAGE/.git"
 rm -rf "$BUILD_STAGE/.github"
+# Dev-only preview harness + local config (never shipped).
+rm -rf "$BUILD_STAGE/dev"
+rm -rf "$BUILD_STAGE/node_modules"
+rm -rf "$BUILD_STAGE/.idea"
+rm -rf "$BUILD_STAGE/.vscode"
+rm -f "$BUILD_STAGE/package.json"
+rm -f "$BUILD_STAGE/.env" "$BUILD_STAGE/.env.example" "$BUILD_STAGE/.gitignore"
 rm -f "$BUILD_STAGE/build_extension.sh"
 rm -f "$BUILD_STAGE/.DS_Store"
 rm -f "$BUILD_STAGE/icons/icon-original.png"
