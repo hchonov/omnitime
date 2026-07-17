@@ -168,14 +168,16 @@
       if (e.target === overlay) cleanup();
     });
 
-    const myDayState = { date: todayStr(), frequent: null };
+    const myDayState = { date: todayStr(), frequent: null, calCache: null, dismissedCalEvents: new Set() };
+    const icalUrl = opts.icalUrl || '';
+    const icalTransport = opts.icalTransport || null;
     const showIssue = () => {
       content.classList.remove('omnitime-modal-content--myday');
       renderIssueTab(content, apiClient, context);
     };
     const showMyDay = () => {
       content.classList.add('omnitime-modal-content--myday');
-      renderMyDayTab(content, apiClient, context, myDayState);
+      renderMyDayTab(content, apiClient, context, myDayState, icalUrl, icalTransport);
     };
 
     // Single-view by default - works on the old API (tracked-time only).
@@ -254,7 +256,8 @@
   // The scaffold (week strip + day nav + timeline/form columns + footer) is
   // built once; switching days fetches in the background and swaps only the
   // changed pieces in place, so transitions are seamless (no full re-render).
-  function renderMyDayTab(root, apiClient, context, state) {
+  function renderMyDayTab(root, apiClient, context, state, icalUrl, icalTransport) {
+    if (window.omniDebugMode) console.log('OmniTime: renderMyDayTab called with icalUrl:', icalUrl);
     root.innerHTML = '';
     const layout = elem('div', 'omnitime-myday');
     const weekWrap = elem('div', 'omnitime-week-wrap');
@@ -276,10 +279,24 @@
     const timelineWrap = elem('div', 'omnitime-myday__timeline');
     const formWrap = elem('div', 'omnitime-myday__form');
     cols.appendChild(timelineWrap);
-    cols.appendChild(formWrap);
-
-    const footer = elem('div', 'omnitime-myday__total', '<span class="omnitime-myday__total-group">Total <strong>0:00</strong></span>');
+    cols.appendChild(formWrap);    const footer = elem('div', 'omnitime-myday__total', '<span class="omnitime-myday__total-group">Total <strong>0:00</strong></span>');
     const footerTotal = footer.querySelector('strong');
+
+    // Calendar sync status indicator + refresh button (appended to footer).
+    const calStatus = elem('span', 'omnitime-cal-status');
+    const calRefresh = elem('button', 'omnitime-cal-refresh', `${icon('repeat')}`);
+    calRefresh.title = 'Refresh calendar';
+    calRefresh.type = 'button';
+    const calWrap = elem('span', 'omnitime-cal-status-wrap');
+    calWrap.appendChild(calStatus);
+    calWrap.appendChild(calRefresh);
+    // Only show calendar controls when an iCal URL is configured.
+    if (icalUrl) footer.appendChild(calWrap);
+
+    function setCalStatus(text, cls) {
+      calStatus.innerHTML = text;
+      calStatus.className = 'omnitime-cal-status omnitime-cal-status--' + cls;
+    }
 
     layout.appendChild(weekWrap);
     layout.appendChild(nav);
@@ -289,7 +306,117 @@
     let loaded = false;
     let reqId = 0;
 
-    function applyData(data) {
+    // --- Calendar event cache ---
+    // Cache lives across day switches within a single modal session.
+    let calWeekCache = state.calCache;
+
+    function simpleHash(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+      }
+      return 'h' + (h >>> 0).toString(36);
+    }
+
+    function getCalEventsForDate(date) {
+      if (!calWeekCache || !calWeekCache.events) return [];
+      const Cal = window.OmniTimeCal;
+      return Cal ? Cal.filterEventsForDate(calWeekCache.events, date) : [];
+    }
+
+    // Fetch calendar events from local cache for immediate display.
+    function loadCalendarEvents(date) {
+      const Cal = window.OmniTimeCal;
+      if (!Cal || !icalUrl || !icalTransport) {
+        if (icalUrl) setCalStatus('Parser unavailable', 'err');
+        return Promise.resolve([]);
+      }
+
+      const weekStart = Cal.weekMonday(date);
+
+      // Use in-memory cache if valid.
+      if (calWeekCache && calWeekCache.weekStart === weekStart) {
+        setCalStatus(`${icon('calendar')} Synced`, 'ok');
+        return Promise.resolve(getCalEventsForDate(date));
+      }
+
+      setCalStatus('Loading\u2026', 'busy');
+
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get(['icalCache'], (result) => {
+            const stored = result && result.icalCache;
+            if (stored && stored.weekStart === weekStart && stored.events) {
+              calWeekCache = stored;
+              state.calCache = stored;
+              setCalStatus(`${icon('calendar')} Synced`, 'ok');
+              resolve(getCalEventsForDate(date));
+            } else {
+              resolve([]);
+            }
+          });
+        } else {
+          resolve([]);
+        }
+      });
+    }
+
+    // Sync from network in the background and update the timeline live.
+    function syncCalendarBackground(date) {
+      const Cal = window.OmniTimeCal;
+      if (!Cal || !icalUrl || !icalTransport) return;
+      const weekStart = Cal.weekMonday(date);
+
+      const cachedHash = calWeekCache ? (calWeekCache.hash || '') : '';
+      const cachedEtag = calWeekCache ? (calWeekCache.etag || '') : '';
+
+      setCalStatus('Syncing\u2026', 'busy');
+
+      icalTransport(icalUrl, cachedEtag).then((resp) => {
+        if (resp.notModified) {
+          setCalStatus(`${icon('calendar')} Synced`, 'ok');
+          return;
+        }
+        const newHash = simpleHash(resp.data);
+        if (newHash === cachedHash) {
+          if (calWeekCache) calWeekCache.etag = resp.etag || '';
+          setCalStatus(`${icon('calendar')} Synced`, 'ok');
+          return;
+        }
+        const events = Cal.parseICalForWeek(resp.data, weekStart);
+        calWeekCache = { weekStart, etag: resp.etag || '', hash: newHash, events };
+        state.calCache = calWeekCache;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ icalCache: calWeekCache });
+        }
+        setCalStatus(`${icon('calendar')} Synced`, 'ok');
+
+        const grid = layout.querySelector('.omnitime-tl');
+        if (grid) {
+          grid.dispatchEvent(new CustomEvent('omnitime-cal-update', { detail: getCalEventsForDate(date) }));
+        }
+      }).catch((err) => {
+        if (window.omniDebugMode) console.error('OmniTime: background sync error:', err);
+        setCalStatus('Sync failed: ' + err.message, 'err');
+      });
+    }
+
+    // Force-refresh: invalidate cache and fetch via background sync.
+    function refreshCalendar() {
+      calWeekCache = null;
+      state.calCache = null;
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.remove('icalCache');
+      }
+      // Immediately clear current events visually
+      const grid = layout.querySelector('.omnitime-tl');
+      if (grid) grid.dispatchEvent(new CustomEvent('omnitime-cal-update', { detail: [] }));
+      
+      syncCalendarBackground(state.date);
+    }
+    calRefresh.addEventListener('click', refreshCalendar);
+
+    function applyData(data, calEvents) {
       loaded = true;
       navLabel.textContent = prettyDate(state.date);
       weekWrap.innerHTML = '';
@@ -303,29 +430,33 @@
         context,
         state,
         reload: () => loadDay(state.date),
+        calendarEvents: calEvents || [],
       });
     }
 
     function loadDay(date) {
       state.date = date;
-      navLabel.textContent = prettyDate(date); // instant feedback while fetching
+      navLabel.textContent = prettyDate(date);
       const myReq = ++reqId;
       layout.classList.add('omnitime-myday--busy');
-      apiClient.myDay(date).then((data) => {
-        if (myReq !== reqId || !root.contains(layout)) return; // superseded / tab switched
+
+      Promise.all([apiClient.myDay(date), loadCalendarEvents(date)]).then(([data, calEvents]) => {
+        if (myReq !== reqId || !root.contains(layout)) return;
         layout.classList.remove('omnitime-myday--busy');
-        applyData(data);
+        applyData(data, calEvents);
+        
+        syncCalendarBackground(date);
       }).catch((err) => {
         if (myReq !== reqId || !root.contains(layout)) return;
         layout.classList.remove('omnitime-myday--busy');
-        if (loaded) return; // keep the current day on a transient switch error
+        if (loaded) return;
         if (isUnavailable(err)) {
           root.innerHTML = `
             <div class="omnitime-empty omnitime-unavailable">
               ${icon('calendar')}
               <div>
-                <strong>“My day” isn’t available on this server yet.</strong>
-                <span class="omnitime-empty__sub">It needs the updated OmniTime time-tracking API. The “This issue” tab works with the current API.</span>
+                <strong>"My day" isn't available on this server yet.</strong>
+                <span class="omnitime-empty__sub">It needs the updated OmniTime time-tracking API. The "This issue" tab works with the current API.</span>
               </div>
             </div>`;
         } else {
@@ -334,7 +465,6 @@
       });
     }
 
-    // Initial paint: a one-time loading line in the timeline area only.
     timelineWrap.innerHTML = `<div class="omnitime-loading">${icon('calendar')} Loading your day&hellip;</div>`;
     root.appendChild(layout);
     loadDay(state.date);
@@ -362,11 +492,31 @@
       return { start, stop: start != null ? start + dur : null, dur, raw: e };
     }).filter((e) => e.start != null).sort((a, b) => a.start - b.start);
 
+    // Merge calendar events into the timeline layout so they influence the
+    // visible window, but don't occupy segments (they render as overlays).
+    const calEvents = (ctx.calendarEvents || []).map((ce) => ({
+      start: ce.startMinutes,
+      stop: ce.endMinutes,
+      dur: ce.durationMinutes,
+      title: ce.title,
+      isCal: true,
+    }));
+
+    // Determine which calendar events are fully covered by tracked entries.
+    calEvents.forEach((ce) => {
+      ce.covered = entries.some((e) => e.start <= ce.start && e.stop >= ce.stop);
+    });
+
     let winStart = DAY_START_DEFAULT;
     let winEnd = DAY_END_DEFAULT;
     entries.forEach((e) => {
       winStart = Math.min(winStart, e.start - 30);
       winEnd = Math.max(winEnd, e.stop + 30);
+    });
+    // Calendar events also expand the visible window.
+    calEvents.forEach((ce) => {
+      winStart = Math.min(winStart, ce.start - 30);
+      winEnd = Math.max(winEnd, ce.stop + 30);
     });
     winStart = Math.max(0, Math.floor(winStart / 60) * 60);
     winEnd = Math.min(24 * 60, Math.ceil(winEnd / 60) * 60);
@@ -439,6 +589,8 @@
       grid.appendChild(block);
     });
 
+    // Calendar events will be rendered later.
+
     wrap.appendChild(grid);
 
     const cols = wrap.parentElement;
@@ -474,7 +626,7 @@
         sel.block.querySelector('[data-h="bottom"]').addEventListener('pointerdown', (ev) => startResize(ev, 'bottom'));
       }
       sel.block.style.top = minToY(sel.start) + 'px';
-      const sh = Math.max(minToY(sel.start + sel.dur) - minToY(sel.start), 18);
+      const sh = Math.max(minToY(sel.start + sel.dur) - minToY(sel.start), MIN_ENTRY_H);
       sel.block.style.height = sh + 'px';
       sel.block.classList.toggle('omnitime-tl__sel--tiny', sh < 34);
       sel.block.querySelector('.omnitime-tl__seltext').innerHTML =
@@ -572,7 +724,7 @@
     }
     grid.addEventListener('pointermove', (ev) => {
       // Only hint in the empty state (no active selection / form closed).
-      if (resize || sel.start != null || ev.target.closest('.omnitime-tl__entry')) { hideGhost(); return; }
+      if (resize || sel.start != null || ev.target.closest('.omnitime-tl__entry') || ev.target.closest('.omnitime-tl__cal-event')) { hideGhost(); return; }
       const rect = grid.getBoundingClientRect();
       const minute = snap(yToMin(ev.clientY - rect.top));
       if (entries.some((e) => minute >= e.start && minute < e.stop)) { hideGhost(); return; }
@@ -596,6 +748,88 @@
       form.reveal();
       if (sel.block) sel.block.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
+
+    // --- Calendar event blocks (tentative placeholders) ---
+    function renderCalendarEvents(calEventsList) {
+      try {
+        grid.querySelectorAll('.omnitime-tl__cal-event').forEach(el => el.remove());
+        grid.querySelectorAll('.omnitime-tl__debug').forEach(el => el.remove()); // clear debug
+        
+        // Deduplicate events by ID to prevent stacked identical events
+        const uniqueEvents = [];
+        const seen = new Set();
+        calEventsList.forEach(ce => {
+          const eventId = `${ce.start}-${ce.stop}-${ce.title}`;
+          if (!seen.has(eventId)) {
+            seen.add(eventId);
+            uniqueEvents.push(ce);
+          }
+        });
+        
+        uniqueEvents.forEach((ce) => {
+          const eventId = `${ce.start}-${ce.stop}-${ce.title}`;
+          if (ctx.state && ctx.state.dismissedCalEvents && ctx.state.dismissedCalEvents.has(eventId)) return;
+  
+          // Re-evaluate coverage against current entries
+          ce.covered = entries.some(e => Math.max(e.start, ce.start) < Math.min(e.stop, ce.stop));
+          const top = minToY(ce.start);
+          const bot = minToY(ce.stop);
+          const h = Math.max(bot - top, MIN_ENTRY_H);
+          const tiny = h < 30;
+          const block = elem('div', 'omnitime-tl__cal-event' + (ce.covered ? ' omnitime-tl__cal-event--covered' : '') + (tiny ? ' omnitime-tl__cal-event--tiny' : ''));
+          block.style.top = top + 'px';
+          block.style.height = h + 'px';
+          block.title = ce.covered ? `${ce.title} (already tracked)` : `${ce.title} — click to track`;
+          block.innerHTML = `
+            <div class="omnitime-tl__cal-top">
+              <span class="omnitime-tl__cal-title">${icon('calendar')} ${esc(ce.title)} <span class="omnitime-tl__cal-meta-inline" style="display:${tiny ? 'inline' : 'none'}; font-size:10px; font-weight:normal;">(${fmtClock(ce.start)}-${fmtClock(ce.stop)})</span></span>
+              <button class="omnitime-tl__cal-dismiss" title="Hide this event" type="button" style="display:${ce.covered ? 'none' : 'inline-flex'};">${icon('close')}</button>
+            </div>
+            <span class="omnitime-tl__cal-meta" style="display:${tiny ? 'none' : 'block'}">${fmtClock(ce.start)}\u2013${fmtClock(ce.stop)} \u00b7 ${fmtDur(ce.dur)}</span>`;
+          if (!ce.covered) {
+            block.addEventListener('pointerdown', (ev) => {
+              if (ev.target.closest('.omnitime-tl__cal-dismiss')) {
+                ev.stopPropagation();
+                if (ctx.state && ctx.state.dismissedCalEvents) ctx.state.dismissedCalEvents.add(eventId);
+                block.remove();
+                return;
+              }
+              ev.stopPropagation();
+              setSelection(ce.start, ce.dur);
+              form.calendarPrefill(ce);
+            });
+          }
+          const ref = (sel.block && sel.block.parentElement === grid) ? sel.block : ((ghost && ghost.parentElement === grid) ? ghost : null);
+          grid.insertBefore(block, ref);
+        });
+      } catch (err) {
+        const errDiv = elem('div', 'omnitime-tl__debug', 'Render error: ' + err.message);
+        errDiv.style.color = 'red';
+        errDiv.style.position = 'absolute';
+        errDiv.style.bottom = '20px';
+        grid.appendChild(errDiv);
+      }
+    }
+
+    renderCalendarEvents(calEvents);
+    grid.addEventListener('omnitime-cal-update', (ev) => {
+      try {
+        const mapped = (ev.detail || []).map(ce => ({
+          start: ce.startMinutes,
+          stop: ce.endMinutes,
+          dur: ce.durationMinutes,
+          title: ce.title,
+          isCal: true,
+        }));
+        renderCalendarEvents(mapped);
+      } catch (err) {
+        const errDiv = elem('div', 'omnitime-tl__debug', 'Map error: ' + err.message);
+        errDiv.style.color = 'red';
+        errDiv.style.position = 'absolute';
+        errDiv.style.bottom = '40px';
+        grid.appendChild(errDiv);
+      }
+    });
 
     // "+ Add entry" lives in the footer row (bottom-left), beside the total.
     // The footer persists across day switches, so drop any prior button first
@@ -912,6 +1146,26 @@
         commentInput.value = entry.comment || '';
         whenEl.textContent = `· ${entry.start || ''}, ${prettyDate(ctx.state.date)}`;
         if (ctrl.setFormOpen) ctrl.setFormOpen(true);
+      },
+      // Pre-fill from a calendar event click: auto-search.
+      // Note: time is set externally by setSelection() to snap to free gaps.
+      calendarPrefill: (calEvent) => {
+        editing = null;
+        formEl.classList.remove('omnitime-form--edit');
+        titleEl.textContent = 'New entry';
+        saveBtn.textContent = 'Save entry';
+        resetDel();
+        setTarget(currentIssueClosed() ? 'none' : 'current', null, issueLabel);
+        commentInput.value = '';
+        if (ctrl.setFormOpen) ctrl.setFormOpen(true);
+
+        // Auto-search with cleaned calendar title.
+        const Cal = window.OmniTimeCal;
+        const q = Cal ? Cal.cleanTitle(calEvent.title) : calEvent.title;
+        if (q) {
+          searchInput.value = q;
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       },
       isEditing: () => editing != null,
       setTime: (startStr, dur) => {
