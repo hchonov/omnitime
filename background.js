@@ -34,10 +34,38 @@ function doFetch(request, sendResponse) {
     });
 }
 
+function doFetchIcal(request, sendResponse) {
+  const headers = { 'Accept': 'text/calendar, text/plain' };
+  if (request.etag) headers['If-None-Match'] = request.etag;
+
+  fetch(request.url, { method: 'GET', headers })
+    .then(async (response) => {
+      if (response.status === 304) {
+        sendResponse({ success: true, notModified: true });
+        return;
+      }
+      if (!response.ok) {
+        sendResponse({ success: false, error: `HTTP ${response.status}`, status: response.status });
+        return;
+      }
+      const data = await response.text();
+      const etag = response.headers.get('ETag') || '';
+      sendResponse({ success: true, data, etag });
+    })
+    .catch((error) => {
+      sendResponse({ success: false, error: error.message });
+    });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Generic request used by the new UI, plus the legacy GET action.
   if (request.action === 'OMNI_FETCH' || request.action === 'FETCH_TIME_DATA') {
     doFetch(request, sendResponse);
     return true; // Respond asynchronously.
+  }
+  // iCal feed fetch with conditional ETag support.
+  if (request.action === 'OMNI_FETCH_ICAL') {
+    doFetchIcal(request, sendResponse);
+    return true;
   }
 });

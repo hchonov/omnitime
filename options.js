@@ -76,9 +76,10 @@ function updateEndpointPlaceholders() {
 
 // Load saved settings
 document.addEventListener('DOMContentLoaded', async () => {
-  const settings = await chrome.storage.sync.get(['apiUrl', 'apiKey', 'instances', 'debug']);
+  const settings = await chrome.storage.sync.get(['apiUrl', 'apiKey', 'instances', 'debug', 'icalUrl']);
 
   if (settings.debug) document.getElementById('debugMode').checked = settings.debug;
+  if (settings.icalUrl) document.getElementById('icalUrl').value = settings.icalUrl;
 
   // Migration or Loading
   const url = settings.apiUrl || '';
@@ -146,7 +147,7 @@ document.getElementById('save').addEventListener('click', async () => {
       await chrome.scripting.registerContentScripts([{
         id: 'omnitime-cs',
         matches: origins,
-        js: ['adapters/gitlab.js', 'core.js', 'content.js'],
+        js: ['adapters/gitlab.js', 'ical-parser.js', 'core.js', 'content.js'],
         css: ['style.css'],
         runAt: 'document_idle'
       }]);
@@ -165,7 +166,9 @@ document.getElementById('save').addEventListener('click', async () => {
   if (epVal('epSearch')) endpoints.search = epVal('epSearch');
 
   // 3. Save Settings
-  chrome.storage.sync.set({ apiUrl, apiKey, instances, debug: debugMode, endpoints }, () => {
+  const icalUrl = document.getElementById('icalUrl').value.trim();
+
+  chrome.storage.sync.set({ apiUrl, apiKey, instances, debug: debugMode, endpoints, icalUrl }, () => {
     alert('Settings saved and permissions granted!');
   });
 });

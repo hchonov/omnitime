@@ -52,6 +52,23 @@ function makeTransport(apiKey) {
   });
 }
 
+// Transport for iCal feed fetching (no API key, returns raw text).
+function makeIcalTransport() {
+  return (url, etag) => new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'OMNI_FETCH_ICAL', url, etag }, (resp) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (resp && resp.success) {
+        resolve(resp);
+      } else {
+        reject(new Error((resp && resp.error) || 'iCal fetch failed'));
+      }
+    });
+  });
+}
+
 // Build the issue context (source/project/issue + label) for the modal.
 function buildContext(adapter) {
   const context = { source: window.location.origin };
@@ -69,7 +86,7 @@ function buildContext(adapter) {
 }
 
 async function init() {
-  const settings = await chrome.storage.sync.get(['apiUrl', 'apiKey', 'instances', 'debug', 'endpoints']);
+  const settings = await chrome.storage.sync.get(['apiUrl', 'apiKey', 'instances', 'debug', 'endpoints', 'icalUrl']);
   omniDebugMode = !!settings.debug;
   log('Extension initialized', settings);
 
@@ -109,7 +126,7 @@ async function init() {
     if (target) {
       if (!target.dataset.omniTimeInjected) {
         target.dataset.omniTimeInjected = 'true';
-        attachClick(target, adapter, apiClient);
+        attachClick(target, adapter, apiClient, settings.icalUrl);
       }
       return true;
     }
@@ -128,12 +145,18 @@ async function init() {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-function attachClick(target, adapter, apiClient) {
+function attachClick(target, adapter, apiClient, icalUrl) {
   const trigger = adapter.styleTarget(target);
   trigger.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    window.OmniTime.openModal({ apiClient, context: buildContext(adapter) });
+    if (omniDebugMode) console.log('OmniTime: Opening modal with icalUrl:', icalUrl);
+    window.OmniTime.openModal({
+      apiClient,
+      context: buildContext(adapter),
+      icalUrl: icalUrl || '',
+      icalTransport: makeIcalTransport(),
+    });
   });
 }
 

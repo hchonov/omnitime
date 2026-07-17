@@ -15,9 +15,20 @@ Your Configuration Settings (Provider URL, API Keys, and Host mappings) are stor
 - **Access**: We (the developers) have no access to your API keys or configuration data.
 
 ## 3. Network Requests
-The Extension makes network requests (via `fetch`) **only** to the Provider URL you have configured.
-- These requests are performed to retrieve time tracking data relevant to the tickets you view.
+The Extension makes network requests (via `fetch`) **only** to:
+1. The Provider URL you have configured (for time tracking data).
+2. The Google Calendar iCal URL you have optionally configured (for calendar event data).
+
+- These requests are performed to retrieve time tracking data relevant to the tickets you view and to display calendar events as time-tracking placeholders.
 - No other background network activity occurs.
+
+## 3a. Calendar Integration (Optional)
+If you choose to configure a Google Calendar "Secret address in iCal format":
+- The iCal URL is stored locally on your device using the browser's storage API (`chrome.storage.sync`), alongside your other configuration.
+- Calendar event data (event titles, start/end times) is fetched from Google Calendar and **cached locally** in your browser (`chrome.storage.local`) to reduce network requests.
+- **No calendar data is sent to any third-party server** beyond the original Google Calendar fetch.
+- The iCal "secret address" grants read-only access to your calendar events. You should treat this URL as sensitive — anyone with access to it can read your calendar events.
+- You can remove the iCal URL at any time from the Extension settings to stop calendar integration.
 
 ## 4. Permissions
 The Extension requests access to websites (hosts) solely for the purpose of:
