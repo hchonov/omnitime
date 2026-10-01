@@ -34,7 +34,7 @@ It provides a "Tracking report" overlay when viewing Issues or Merge Requests, a
     *   **Provider URL**: The endpoint of your time tracking API (e.g., `https://api.mycompany.com/time-stats`).
     *   **API Key**: (Optional) Your API key, sent as `api-key` header.
 3.  **Instances**:
-    *   **Host URL**: The domain where you want the extension to run (e.g., `gitlab.com` or `gitlab.mycompany.com`).
+    *   **Host URL**: The domain where you want the extension to run (e.g., `gitlab.com` or `gitlab.mycompany.com`). A bare host or a complete HTTP(S) URL is accepted; the host (including any port) is stored.
     *   **Source ID**: An ID forwarded to your API to identify the source system.
     *   **System Type**: Select "GitLab" (more types coming soon).
 4.  **Save & Grant Permissions**:
