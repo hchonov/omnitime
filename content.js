@@ -4,6 +4,28 @@
 
 var omniDebugMode = false;
 
+// Normalize legacy saved URLs without requiring users to re-save Options.
+// Keep this compatible with the copy in options.js.
+function normalizeInstanceHost(value) {
+  if (typeof value !== 'string') return null;
+  const input = value.trim();
+  if (!input) return null;
+
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(input);
+  const hasPort = /^[^/?#]+:\d+(?:[/?#]|$)/.test(input);
+  if (!hasScheme && /^[a-z][a-z\d+.-]*:/i.test(input) && !hasPort) return null;
+  if (/^https?:\/\/\//i.test(input)) return null;
+
+  try {
+    const url = new URL(hasScheme ? input : `https://${input}`);
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname ||
+        url.username || url.password || url.hostname.includes('*')) return null;
+    return url.host;
+  } catch (e) {
+    return null;
+  }
+}
+
 function log(...args) {
   if (omniDebugMode) console.log('OmniTime:', ...args);
 }
@@ -51,12 +73,13 @@ async function init() {
   omniDebugMode = !!settings.debug;
   log('Extension initialized', settings);
 
-  if (!settings.instances || !settings.apiUrl) {
+  if (!Array.isArray(settings.instances) || !settings.apiUrl) {
     warn('Missing configuration (instances or apiUrl)');
     return;
   }
 
-  const config = settings.instances.find((inst) => window.location.host === inst.hostUrl);
+  const config = settings.instances.find((inst) =>
+    normalizeInstanceHost(inst && inst.hostUrl) === window.location.host);
   if (!config) return;
 
   const systemType = config.systemType || 'gitlab';

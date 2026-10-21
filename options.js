@@ -1,5 +1,26 @@
 // options.js
 
+// Keep this compatible with the copy in content.js for previously saved hosts.
+function normalizeInstanceHost(value) {
+  if (typeof value !== 'string') return null;
+  const input = value.trim();
+  if (!input) return null;
+
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(input);
+  const hasPort = /^[^/?#]+:\d+(?:[/?#]|$)/.test(input);
+  if (!hasScheme && /^[a-z][a-z\d+.-]*:/i.test(input) && !hasPort) return null;
+  if (/^https?:\/\/\//i.test(input)) return null;
+
+  try {
+    const url = new URL(hasScheme ? input : `https://${input}`);
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname ||
+        url.username || url.password || url.hostname.includes('*')) return null;
+    return url.host;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Add a new row to the UI
 function createInstanceRow(hostUrl = '', systemType = 'gitlab') {
   const container = document.getElementById('instances');
@@ -86,24 +107,20 @@ document.getElementById('save').addEventListener('click', async () => {
   const origins = [];
   const debugMode = document.getElementById('debugMode').checked;
 
-  document.querySelectorAll('.instance').forEach(row => {
-    let hostUrl = row.querySelector('.host-url').value.trim();
+  for (const row of document.querySelectorAll('.instance')) {
+    const enteredHost = row.querySelector('.host-url').value.trim();
     const systemType = row.querySelector('.system-type').value;
 
-    if (hostUrl) {
-      instances.push({ hostUrl, systemType });
-      // Construct origin pattern (http and https)
-      // If user typed 'gitlab.com', we want '*://gitlab.com/*'
-      if (hostUrl.startsWith('http')) {
-        // strip protocol to get clean host for pattern
-        try {
-          const u = new URL(hostUrl);
-          hostUrl = u.host;
-        } catch (e) { }
+    if (enteredHost) {
+      const hostUrl = normalizeInstanceHost(enteredHost);
+      if (!hostUrl) {
+        alert(`Invalid Host URL: ${enteredHost}. Enter a host or an HTTP(S) URL.`);
+        return;
       }
+      instances.push({ hostUrl, systemType });
       origins.push(`*://${hostUrl}/*`);
     }
-  });
+  }
 
   const apiUrl = document.getElementById('apiUrl').value.trim();
   const apiKey = document.getElementById('apiKey').value.trim();
