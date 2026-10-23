@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OmniTime preview</title>
-  <link rel="stylesheet" href="../style.css">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; background: #f6f7f9; color: #333; }
     .dev-bar { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; max-width: 680px; }
@@ -43,7 +42,22 @@
       <label><input type="radio" name="mode" value="fixtures"> Fixtures (offline)</label>
     </div>
     <div class="dev-row">
+      <label><input type="checkbox" id="pm"> Fixtures: project manager (can view colleagues' weeks)</label>
+    </div>
+    <div class="dev-row">
       <label><input type="checkbox" id="oldapi"> Simulate old API (only <code>tracked-time</code> exists)</label>
+    </div>
+    <div class="dev-row">
+      <label>Theme <select id="theme">
+        <option value="auto">auto (prefers-color-scheme)</option>
+        <option value="light">light</option>
+        <option value="dark">dark (e.g. GitLab gl-dark)</option>
+      </select></label>
+      <label>Open on <select id="tab">
+        <option value="issue">This issue</option>
+        <option value="myday">My day</option>
+        <option value="week">Week</option>
+      </select></label>
     </div>
     <div class="dev-row">
       <label>source <input id="ctx-source" size="26"></label>
@@ -58,6 +72,9 @@
   </div>
 
   <script src="env.js"></script>
+  <script src="../ical-parser.js"></script>
+  <script src="../timer.js"></script>
+  <script>window.__omnitimeShadowMode = 'open'; // dev harness: Playwright and devtools pierce the root</script>
   <script src="../core.js"></script>
   <script src="fixtures.js"></script>
   <script>
@@ -100,8 +117,13 @@
         return data;
       });
 
-    const fixtureTransport = (method, url) => new Promise((resolve) => {
-      setTimeout(() => resolve(window.OMNI_FIXTURES.match(method, url)), 150);
+    const fixtureTransport = (method, url, body) => new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const data = window.OMNI_FIXTURES.match(method, url, body);
+        // A fixture can answer with an error: { __status, message }.
+        if (data && data.__status) { const e = new Error(data.message); e.status = data.__status; reject(e); return; }
+        resolve(data);
+      }, 150);
     });
 
     // Wrap a transport to simulate a server with only the classic tracked-time
@@ -113,9 +135,19 @@
       return transport(method, url, body);
     };
 
-    $('open').addEventListener('click', () => {
+    // Same mounting as the extension: core.js puts the UI in a shadow root and
+    // gets style.css as text (the extension's service worker hands it over).
+    const stylesReady = fetch('../style.css', { cache: 'no-store' })
+      .then((r) => r.text())
+      .then((css) => window.OmniTime.setStyles(css));
+
+    $('open').addEventListener('click', async () => {
+      await stylesReady;
       const mode = document.querySelector('input[name=mode]:checked').value;
       let transport = mode === 'fixtures' ? fixtureTransport : liveTransport;
+      // Fixtures: offline calendar feed + memory via a chrome.storage stand-in.
+      if (mode === 'fixtures') window.OMNI_FIXTURES.installChrome();
+      window.OMNI_FIXTURES.pm = $('pm').checked;
       if ($('oldapi').checked) transport = withOldApiSim(transport);
       // Re-probe capability on every open so the toggles/URL above take effect.
       if (window.OmniTime.__resetCapability) window.OmniTime.__resetCapability();
@@ -126,7 +158,15 @@
         issue_id: $('ctx-issue').value.trim(),
         issue_label: $('ctx-label').value.trim(),
       };
-      window.OmniTime.openModal({ apiClient, context });
+      window.OmniTime.openModal({
+        apiClient,
+        context,
+        activeTab: $('tab').value,
+        theme: $('theme').value,
+        settings: { dayStart: 8, dayEnd: 17 },
+        icalUrl: mode === 'fixtures' ? 'fixtures.ics' : '',
+        onDayTotal: (date, totalMinutes) => console.log('OmniTime preview: day total', date, totalMinutes),
+      });
     });
   </script>
 </body>
