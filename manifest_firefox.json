@@ -6,13 +6,17 @@
     "author": "Hristo Chonov",
     "permissions": [
         "storage",
-        "scripting"
+        "scripting",
+        "alarms",
+        "unlimitedStorage",
+        "identity",
+        "notifications",
+        "contextMenus"
     ],
     "host_permissions": [
         "*://*/*"
     ],
     "action": {
-        "default_popup": "options.html",
         "default_icon": {
             "16": "icons/icon-16.png",
             "48": "icons/icon-48.png",
@@ -26,6 +30,7 @@
     },
     "background": {
         "scripts": [
+            "ical-parser.js",
             "background.js"
         ]
     },
@@ -33,6 +38,18 @@
         "page": "options.html",
         "open_in_tab": true
     },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "options.html",
+                "options.css",
+                "options.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
     "browser_specific_settings": {
         "gecko": {
             "id": "omnitime@hristo.chonov.gmail.com",

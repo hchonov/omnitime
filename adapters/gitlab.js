@@ -45,6 +45,12 @@ if (typeof window.GitlabAdapter === 'undefined') {
       return null;
     }
 
+    // The "Time tracking" heading inside the target (the element the quick-track
+    // chevron sits in); the target itself on sidebars without an h3.
+    getHeading(target) {
+      return target.querySelector('h3') || target;
+    }
+
     styleTarget(target) {
       let trigger = target.querySelector('h3');
 
@@ -62,6 +68,17 @@ if (typeof window.GitlabAdapter === 'undefined') {
       trigger.title = 'Click to view OmniTime report';
 
       return trigger;
+    }
+
+    // GitLab puts the user's color mode on <html>: gl-light, gl-dark, or
+    // gl-system plus an inline script that adds/removes gl-dark with the OS
+    // setting (older versions set gl-dark on <body>). 'auto' when unknown, so
+    // the modal follows prefers-color-scheme.
+    getTheme() {
+      const html = document.documentElement.classList;
+      if (html.contains('gl-dark') || (document.body && document.body.classList.contains('gl-dark'))) return 'dark';
+      if (html.contains('gl-light') || html.contains('gl-system')) return 'light';
+      return 'auto';
     }
 
     getMetadata() {

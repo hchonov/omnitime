@@ -1,66 +1,560 @@
-/* Modal Overlay */
+/* OmniTime UI stylesheet.
+ *
+ * Loaded ONLY inside the shadow root core.js mounts the UI in (one
+ * <omnitime-root> host on <body>), never into the host page: the service
+ * worker hands this file's text to the page scripts (see OMNI_GET_STYLES in
+ * background.js), so selectors here can't leak out and page CSS can't leak in.
+ *
+ * Theming: every color, radius and shadow is a --ot-* custom property defined
+ * on :host below. core.js sets data-theme="light" | "dark" on the host; the
+ * dark values override the light ones. New UI must use the tokens (never
+ * hard-coded colors) so both themes keep working:
+ *
+ *   color: var(--ot-text-muted);  background: var(--ot-bg-subtle);
+ *
+ * Surfaces  --ot-bg, -bg-subtle, -bg-muted, -bg-sunken, -bg-hover-tint, -backdrop,
+ *           -input-bg
+ * Text      --ot-text-strong, -text, -text-secondary, -text-muted, -text-subtle
+ * Borders   --ot-border, -border-subtle, -border-strong, -grid-line
+ * Accent    --ot-accent (icons, outlines), -accent-text (text, AA on tints),
+ *           -accent-strong, -accent-subtle (tint bg), -accent-faint, -accent-border,
+ *           -accent-solid / -accent-solid-hover + -on-accent (filled buttons)
+ * Timeline  --ot-entry-*, -badge-*, -sel-bg, -ghost-*
+ * Calendar  --ot-cal-* (placeholder blocks + hover popover)
+ * Projects  --ot-project-0 .. -7 (entry stripe, picked by a hash of the project)
+ * Day       --ot-tl-work-bg (working-hours band), --ot-now / -on-now (now line)
+ * Status    --ot-danger*, -warn-*, -success, -busy
+ * Week      --ot-star (starred issues), --ot-absent-bg / -absent-text (absence chip)
+ * Day meter  --ot-meter-track, -meter-met / -meter-under / -meter-today (3 px day status bar)
+ * Booked     --ot-booked-bg / -booked-hatch / -booked-border (read-only entries: muted, hatched)
+ * Toast     --ot-toast-bg, -toast-text, -toast-action, -toast-error (ui.toast, bottom of the dialog)
+ * Timer     --ot-rec, -rec-bg, -rec-border, -rec-text (the running timer pill)
+ * Focus     --ot-focus (focus ring color; see :focus-visible)
+ * Shape     --ot-radius-xs|sm|md|lg|xl|pill, --ot-shadow-modal|pop|menu|entry|entry-hover
+ */
+
+/* ------------------------------------------------------------
+   Host + tokens
+   ------------------------------------------------------------ */
+
+:host {
+  /* Page CSS that matches the host element itself (e.g. `* { text-align:
+     center !important }`) must not reach us, neither directly nor through
+     inheritance. Important declarations from a shadow tree beat the page's,
+     so this one !important is required. `all` leaves the custom properties
+     below alone. */
+  all: initial !important;
+
+  --ot-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --ot-bg: #fff;
+  --ot-bg-subtle: #fafafa;
+  --ot-bg-muted: #f4f4f4;
+  --ot-bg-sunken: #f9fafb;
+  --ot-bg-hover-tint: #eef;
+  --ot-backdrop: rgba(0, 0, 0, 0.4);
+  --ot-input-bg: #fff;
+
+  --ot-text-strong: #111;
+  --ot-text: #333;
+  --ot-text-secondary: #555;
+  --ot-text-muted: #666;
+  --ot-text-subtle: #6b6b6b;
+
+  --ot-border: #e5e5e5;
+  --ot-border-subtle: #f0f0f0;
+  --ot-border-strong: #ccc;
+  --ot-grid-line: #eee;
+
+  --ot-accent: #1f75cb;
+  --ot-accent-text: #1a68b6;
+  --ot-accent-strong: #14538f;
+  --ot-accent-subtle: #e7f0fb;
+  --ot-accent-faint: #f6f9fe;
+  --ot-accent-border: #cfe0f5;
+  --ot-accent-solid: #1f75cb;
+  --ot-accent-solid-hover: #195fa6;
+  --ot-on-accent: #fff;
+
+  --ot-entry-bg: #fff;
+  --ot-entry-border: #e1e5eb;
+  --ot-badge-bg: #f0f4f8;
+  --ot-badge-text: #5b6987;
+  --ot-badge-border: #e1e6ed;
+  --ot-sel-bg: rgba(235, 245, 255, 0.95);
+  --ot-ghost-bg: rgba(31, 117, 203, 0.07);
+  --ot-ghost-border: #9bbbe0;
+  --ot-tl-work-bg: rgba(31, 117, 203, 0.045);
+  --ot-now: #d93025;
+  --ot-on-now: #fff;
+
+  --ot-project-0: #2a6fdb;
+  --ot-project-1: #0f8285;
+  --ot-project-2: #3b8a3e;
+  --ot-project-3: #a86b00;
+  --ot-project-4: #d0601f;
+  --ot-project-5: #c2405a;
+  --ot-project-6: #8a4fc7;
+  --ot-project-7: #5f6f88;
+
+  --ot-cal-bg: rgba(156, 106, 222, 0.08);
+  --ot-cal-bg-hover: rgba(142, 68, 173, 0.15);
+  --ot-cal-border: #b39ddb;
+  --ot-cal-border-hover: rgba(142, 68, 173, 0.6);
+  --ot-cal-text: #6a3d9a;
+  --ot-cal-meta: #7a5aae;
+  --ot-cal-muted: #9575cd;
+  --ot-cal-dismiss-hover: rgba(149, 117, 205, 0.2);
+  --ot-cal-pop-title: #4a2372;
+  --ot-cal-pop-hint: #8e44ad;
+  --ot-cal-pop-desc-bg: #f8f6fc;
+  --ot-cal-pop-desc-border: #ebe4f5;
+  --ot-cal-pop-hint-border: #f0ecf7;
+
+  --ot-danger: #c0392b;
+  --ot-danger-text: #b3261e;
+  --ot-danger-bg: #fdecea;
+  --ot-danger-border: #f5c2c0;
+  --ot-danger-border-strong: #e0b4b4;
+  --ot-danger-solid: #c0392b;
+  --ot-warn-bg: #fff7e6;
+  --ot-warn-border: #f0c36d;
+  --ot-warn-text: #7a5c00;
+  --ot-warn-icon: #c08a00;
+  --ot-success: #107c10;
+  --ot-busy: #b45309;
+  --ot-star: #b26a00;
+  --ot-absent-bg: #eceff4;
+  --ot-absent-text: #475467;
+
+  --ot-meter-track: #dfe3e8;
+  --ot-meter-met: #2e7d32;
+  --ot-meter-under: #b3261e;
+  --ot-meter-today: #1f75cb;
+
+  --ot-booked-bg: #f4f5f7;
+  --ot-booked-hatch: rgba(90, 100, 125, 0.09);
+  --ot-booked-border: #d9dce3;
+
+  --ot-toast-bg: #24292f;
+  --ot-toast-text: #fff;
+  --ot-toast-action: #9cc9f7;
+  --ot-toast-error: #ff9b91;
+
+  --ot-rec: #d93025;
+  --ot-rec-bg: #fdecea;
+  --ot-rec-border: #f5c2c0;
+  --ot-rec-text: #a50e0e;
+
+  --ot-focus: #1f75cb;
+
+  --ot-radius-xs: 3px;
+  --ot-radius-sm: 5px;
+  --ot-radius-md: 6px;
+  --ot-radius-lg: 8px;
+  --ot-radius-xl: 10px;
+  --ot-radius-pill: 99px;
+
+  --ot-shadow-modal: 0 12px 32px rgba(20, 30, 50, 0.22);
+  --ot-shadow-pop: 0 6px 20px rgba(0, 0, 0, 0.15);
+  --ot-shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --ot-shadow-entry: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --ot-shadow-entry-hover: 0 2px 5px rgba(31, 117, 203, 0.1);
+  --ot-shadow-cal-hover: 0 2px 8px rgba(142, 68, 173, 0.18);
+}
+
+:host([data-theme="dark"]) {
+  --ot-bg: #1f1f23;
+  --ot-bg-subtle: #26262b;
+  --ot-bg-muted: #2e2e34;
+  --ot-bg-sunken: #18181b;
+  --ot-bg-hover-tint: #2b2f45;
+  --ot-backdrop: rgba(0, 0, 0, 0.6);
+  --ot-input-bg: #18181b;
+
+  --ot-text-strong: #f4f4f5;
+  --ot-text: #e4e4e7;
+  --ot-text-secondary: #c8c8ce;
+  --ot-text-muted: #ababb3;
+  --ot-text-subtle: #94949e;
+
+  --ot-border: #3a3a42;
+  --ot-border-subtle: #2e2e35;
+  --ot-border-strong: #56565f;
+  --ot-grid-line: #2c2c33;
+
+  --ot-accent: #5a9ee6;
+  --ot-accent-text: #7db6f2;
+  --ot-accent-strong: #b0d1f6;
+  --ot-accent-subtle: #1c2d42;
+  --ot-accent-faint: #232a35;
+  --ot-accent-border: #2f4d70;
+  --ot-accent-solid: #1f75cb;
+  --ot-accent-solid-hover: #1968b8;
+
+  --ot-entry-bg: #26262b;
+  --ot-entry-border: #3a3a42;
+  --ot-badge-bg: #30303a;
+  --ot-badge-text: #b8bfd0;
+  --ot-badge-border: #42424c;
+  --ot-sel-bg: rgba(31, 117, 203, 0.24);
+  --ot-ghost-bg: rgba(90, 158, 230, 0.1);
+  --ot-ghost-border: #3f6a99;
+  --ot-tl-work-bg: rgba(90, 158, 230, 0.06);
+  --ot-now: #f28b82;
+  --ot-on-now: #1f1f23;
+
+  --ot-project-0: #6ea8fe;
+  --ot-project-1: #4fc3c4;
+  --ot-project-2: #74c476;
+  --ot-project-3: #e0b050;
+  --ot-project-4: #f08c50;
+  --ot-project-5: #f07890;
+  --ot-project-6: #b892f0;
+  --ot-project-7: #9aa8c0;
+
+  --ot-cal-bg: rgba(179, 157, 219, 0.1);
+  --ot-cal-bg-hover: rgba(179, 157, 219, 0.18);
+  --ot-cal-border: #7e67b0;
+  --ot-cal-border-hover: #a58fd8;
+  --ot-cal-text: #d2bff7;
+  --ot-cal-meta: #bba8e6;
+  --ot-cal-muted: #a58fd8;
+  --ot-cal-dismiss-hover: rgba(179, 157, 219, 0.22);
+  --ot-cal-pop-title: #dccdfb;
+  --ot-cal-pop-hint: #cfa6ea;
+  --ot-cal-pop-desc-bg: #2a2635;
+  --ot-cal-pop-desc-border: #3b3450;
+  --ot-cal-pop-hint-border: #36324a;
+
+  --ot-danger: #f28b82;
+  --ot-danger-text: #f6aea8;
+  --ot-danger-bg: #3a1f1f;
+  --ot-danger-border: #6b2f2c;
+  --ot-danger-border-strong: #7a3a36;
+  --ot-danger-solid: #c0392b;
+  --ot-warn-bg: #3a2f12;
+  --ot-warn-border: #7a6020;
+  --ot-warn-text: #f0cf7a;
+  --ot-warn-icon: #e0b040;
+  --ot-success: #6fcf73;
+  --ot-busy: #f0a35c;
+  --ot-star: #f0b84a;
+  --ot-absent-bg: #2f3542;
+  --ot-absent-text: #c5cdda;
+
+  --ot-meter-track: #3a3a42;
+  --ot-meter-met: #6fcf73;
+  --ot-meter-under: #f28b82;
+  --ot-meter-today: #5a9ee6;
+
+  --ot-booked-bg: #2a2a30;
+  --ot-booked-hatch: rgba(255, 255, 255, 0.05);
+  --ot-booked-border: #3d3d46;
+
+  --ot-toast-bg: #3a3a42;
+  --ot-toast-text: #f4f4f5;
+  --ot-toast-action: #9cc9f7;
+  --ot-toast-error: #ffaba3;
+
+  --ot-rec: #f28b82;
+  --ot-rec-bg: #3a1f1f;
+  --ot-rec-border: #6b2f2c;
+  --ot-rec-text: #f6aea8;
+
+  --ot-focus: #7db6f2;
+
+  --ot-shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --ot-shadow-pop: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --ot-shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --ot-shadow-entry: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --ot-shadow-entry-hover: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --ot-shadow-cal-hover: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* The wrapper every OmniTime element lives in: our own base typography, so
+   nothing is inherited from the page. */
+.omnitime-root {
+  font-family: var(--ot-font);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: normal;
+  color: var(--ot-text);
+  text-align: left;
+  direction: ltr;
+}
+
+:host([data-theme="light"]) .omnitime-root {
+  color-scheme: light;
+}
+
+:host([data-theme="dark"]) .omnitime-root {
+  color-scheme: dark;
+}
+
+/* Form controls don't inherit the font family by default. */
+.omnitime-root button,
+.omnitime-root input,
+.omnitime-root textarea {
+  font-family: inherit;
+}
+
+/* `hidden` must win over the display value of any component class (e.g. the
+   target reset button is inline-flex); a class selector would otherwise beat
+   the UA's [hidden] rule, hence !important. */
+.omnitime-root [hidden] {
+  display: none !important;
+}
+
+.omnitime-root :focus-visible {
+  outline: 2px solid var(--ot-focus);
+  outline-offset: 2px;
+}
+
+.ot-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Inline outline icons */
+.ot-svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: -3px;
+}
+
+/* ------------------------------------------------------------
+   Modal scaffold
+   ------------------------------------------------------------ */
+
 .omnitime-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 10000;
+  background: var(--ot-backdrop);
+  z-index: 2147483000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Modal Box */
 .omnitime-modal {
-  background: #fff;
+  background: var(--ot-bg);
+  color: var(--ot-text);
   width: 880px;
   max-width: 95%;
-  max-height: 85vh;
-  border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  max-height: 90vh;
+  border-radius: var(--ot-radius-xl);
+  box-shadow: var(--ot-shadow-modal);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* The dialog itself takes focus on open (tabindex=-1); no ring for that. */
+.omnitime-modal:focus,
+.omnitime-modal:focus-visible {
+  outline: none;
+}
+
 .omnitime-modal-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e5e5e5;
+  align-items: flex-start;
+  padding: 10px 14px 0;
   flex-shrink: 0;
 }
 
-.omnitime-modal-header h3 {
+/* Single-view header title (shown until the new API is detected; afterwards
+   visually hidden but still labelling the dialog). */
+.omnitime-headerleft {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.omnitime-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
+  padding: 6px 4px;
+  color: var(--ot-text);
+}
+
+/* Gear (Settings) + close, together at the right of the header. */
+.omnitime-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.omnitime-modal-gear,
+.omnitime-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-md);
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-modal-gear:hover,
+.omnitime-modal-close:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
+}
+
+/* The gear stays lit while its panel is open. */
+.omnitime-modal-gear[aria-expanded="true"] {
+  background: var(--ot-accent-subtle);
+  color: var(--ot-accent-text);
+}
+
+.omnitime-modal-gear .ot-svg,
+.omnitime-modal-close .ot-svg {
+  width: 18px;
+  height: 18px;
 }
 
 .omnitime-modal-content {
   padding: 0;
   overflow-y: auto;
+  border-top: 1px solid var(--ot-border-subtle);
 }
 
-/* Table Styling */
+/* Plain message body (e.g. the overlay's "not configured" notice). */
+.omnitime-modal-content--message {
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--ot-text-muted);
+  font-size: 16px;
+}
+
+/* Tabs in the header */
+.omnitime-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.omnitime-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: var(--ot-text-muted);
+  cursor: pointer;
+  border-radius: var(--ot-radius-md) var(--ot-radius-md) 0 0;
+  border-bottom: 2px solid transparent;
+}
+
+.omnitime-tab:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-tab--active {
+  color: var(--ot-accent-text);
+  font-weight: 600;
+  border-bottom-color: var(--ot-accent);
+}
+
+/* Loading / empty / error / unavailable states */
+.omnitime-loading,
+.omnitime-empty,
+.omnitime-error {
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--ot-text-muted);
+  font-size: 14px;
+}
+
+.omnitime-error {
+  color: var(--ot-danger);
+}
+
+.omnitime-error__hint {
+  font-size: 12px;
+  font-weight: normal;
+  opacity: 0.85;
+  margin-top: 8px;
+}
+
+.omnitime-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.omnitime-loading .ot-svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ot-accent);
+}
+
+.omnitime-empty__sub {
+  display: block;
+  color: var(--ot-text-subtle);
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.omnitime-unavailable {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.omnitime-unavailable .ot-svg {
+  width: 22px;
+  height: 22px;
+  color: var(--ot-accent);
+  margin-top: 2px;
+}
+
+.omnitime-unavailable strong {
+  display: block;
+  color: var(--ot-text);
+}
+
+/* ------------------------------------------------------------
+   "This issue" tab
+   ------------------------------------------------------------ */
+
 .omnitime-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.omnitime-table th, .omnitime-table td {
+.omnitime-table th,
+.omnitime-table td {
   padding: 12px 20px;
   text-align: left;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--ot-border-subtle);
   font-size: 14px;
 }
 
 .omnitime-table th {
-  background: #fafafa;
+  background: var(--ot-bg-subtle);
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -69,31 +563,33 @@
 
 .omnitime-total-row td {
   font-weight: bold;
-  background: #fdfdfd;
-  color: #107c10;
+  background: var(--ot-bg-subtle);
+  color: var(--ot-success);
 }
 
-/* Details Section */
 .omnitime-details-container {
-  border-top: 8px solid #f4f4f4;
+  border-top: 8px solid var(--ot-bg-muted);
 }
 
 .omnitime-details-collapsible summary {
   padding: 15px 20px;
   cursor: pointer;
-  color: #1f75cb;
+  color: var(--ot-accent-text);
   font-weight: 600;
-  outline: none;
 }
 
 .omnitime-details-collapsible summary:hover {
-  background: #f9f9f9;
+  background: var(--ot-bg-subtle);
+}
+
+.omnitime-details-collapsible summary:focus-visible {
+  outline-offset: -2px;
 }
 
 .omnitime-details-scroll {
   max-height: 300px;
   overflow-y: auto;
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid var(--ot-border);
 }
 
 .omnitime-details-table {
@@ -101,12 +597,123 @@
 }
 
 .omnitime-details-table th {
-  background: #f4f4f4;
+  background: var(--ot-bg-muted);
   padding: 8px 20px;
 }
 
+/* Issue header: number + title, closed badge, track button */
+.omnitime-issuehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ot-border-subtle);
+}
+
+.omnitime-issuehead__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.omnitime-issuehead__title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-issuehead__badge {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ot-warn-bg);
+  color: var(--ot-warn-text);
+  border: 1px solid var(--ot-warn-border);
+}
+
+.omnitime-issuehead .omnitime-add-btn {
+  flex: none;
+  margin: 0 0 0 auto;
+}
+
+/* Detailed logs grouped by day */
+.omnitime-logday__head th {
+  background: var(--ot-bg-subtle);
+  color: var(--ot-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 20px;
+  position: static;
+}
+
+/* Friendly error state */
+.omnitime-errbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--ot-text);
+}
+
+.omnitime-errbox__icon {
+  color: var(--ot-danger);
+  display: flex;
+}
+
+.omnitime-errbox__title {
+  font-size: 15px;
+}
+
+.omnitime-errbox__msg {
+  margin: 0;
+  max-width: 420px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-errbox__details {
+  font-size: 12px;
+  max-width: 100%;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-errbox__details summary {
+  cursor: pointer;
+}
+
+.omnitime-errbox__tech {
+  margin-top: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-word;
+  background: var(--ot-bg-muted);
+  border-radius: var(--ot-radius-md);
+}
+
+.omnitime-errbox__retry {
+  margin-top: 4px;
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+  border: none;
+  border-radius: var(--ot-radius-md);
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-errbox__retry:hover {
+  background: var(--ot-accent-solid-hover);
+}
+
 .omnitime-comment {
-  color: #666;
+  color: var(--ot-text-muted);
   font-style: italic;
   max-width: 250px;
   overflow: hidden;
@@ -114,55 +721,13 @@
   white-space: nowrap;
 }
 
-.omnitime-modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-}
+/* ------------------------------------------------------------
+   "My day" layout: week strip, day nav, columns, footer
+   ------------------------------------------------------------ */
 
-.omnitime-modal-close:hover {
-  color: #333;
+.omnitime-myday {
+  padding: 14px 16px;
 }
-/* ============================================================
-   OmniTime - tabs, My day timeline, new-entry form, chips
-   ============================================================ */
-
-.ot-ico { font-style: normal; }
-
-/* Tabs in the header */
-.omnitime-tabs {
-  display: flex;
-  gap: 4px;
-}
-.omnitime-tab {
-  background: none;
-  border: none;
-  padding: 8px 14px;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  border-radius: 6px 6px 0 0;
-  border-bottom: 2px solid transparent;
-}
-.omnitime-tab:hover { background: #f4f4f4; }
-.omnitime-tab--active {
-  color: #1f75cb;
-  font-weight: 600;
-  border-bottom-color: #1f75cb;
-}
-
-.omnitime-loading, .omnitime-empty, .omnitime-error {
-  padding: 24px 20px;
-  text-align: center;
-  color: #666;
-  font-size: 14px;
-}
-.omnitime-error { color: #d9534f; }
-
-/* My day layout */
-.omnitime-myday { padding: 14px 16px; }
 
 .omnitime-week {
   display: grid;
@@ -170,571 +735,277 @@
   gap: 2px;
   margin-bottom: 12px;
 }
-.omnitime-week__day, .omnitime-week__sum {
+
+.omnitime-week__day,
+.omnitime-week__sum {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: 6px 2px;
   border: none;
-  background: #fafafa;
-  border-radius: 6px;
+  background: var(--ot-bg-subtle);
+  border-radius: var(--ot-radius-md);
   cursor: pointer;
   font-size: 12px;
-  color: #666;
+  color: var(--ot-text-muted);
 }
-.omnitime-week__sum { background: transparent; cursor: default; }
-.omnitime-week__day:hover { background: #eef; }
-.omnitime-week__day--active { background: #e7f0fb; color: #1f75cb; }
-.omnitime-week__day--active .omnitime-week__total { color: #1f75cb; }
-.omnitime-week__label { font-weight: 600; }
-.omnitime-week__total { color: #333; }
 
-/* Day navigation */
+.omnitime-week__sum {
+  background: transparent;
+  cursor: default;
+}
+
+.omnitime-week__day:hover {
+  background: var(--ot-bg-hover-tint);
+}
+
+.omnitime-week__day--active,
+.omnitime-week__day--active .omnitime-week__total {
+  color: var(--ot-accent-text);
+}
+
+.omnitime-week__day--active {
+  background: var(--ot-accent-subtle);
+}
+
+.omnitime-week__label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.omnitime-week__total {
+  color: var(--ot-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Day meter (strip + Week tab): total / day target as a thin bar. */
+.omnitime-meter {
+  display: block;
+  position: relative;
+  height: 3px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-meter-track);
+  overflow: hidden;
+}
+
+.omnitime-meter__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--ot-meter-today);
+}
+
+.omnitime-meter--met .omnitime-meter__fill { background: var(--ot-meter-met); }
+.omnitime-meter--under .omnitime-meter__fill { background: var(--ot-meter-under); }
+
+.omnitime-week__day .omnitime-meter {
+  align-self: stretch;
+  margin: 1px 12px 0;
+}
+
+/* Weekends and days still ahead: quieter. */
+.omnitime-week__day--weekend,
+.omnitime-week__day--future {
+  background: transparent;
+}
+
+.omnitime-week__day--weekend .omnitime-week__label,
+.omnitime-week__day--weekend .omnitime-week__total,
+.omnitime-week__day--future .omnitime-week__label,
+.omnitime-week__day--future .omnitime-week__total {
+  color: var(--ot-text-subtle);
+  font-weight: 400;
+}
+
+/* Today: an accent underline (the selected day keeps its tint). */
+.omnitime-week__day--today {
+  box-shadow: inset 0 -2px 0 var(--ot-accent);
+}
+
+.omnitime-week__day--today .omnitime-week__label {
+  color: var(--ot-accent-text);
+  font-weight: 700;
+}
+
+/* Day nav: [Today][<][>] as one segmented control, then the date and a muted
+   "Week 43". The label keeps a minimum width so "Week 43" stays put while
+   paging through days. */
 .omnitime-daynav {
   display: flex;
   align-items: center;
-  gap: 8px;
   margin-bottom: 8px;
 }
-.omnitime-daynav__label { font-size: 14px; font-weight: 600; flex: 1; }
+
+.omnitime-daynav__group {
+  display: inline-flex;
+  flex: none;
+  align-items: stretch;
+  min-width: 0;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-md);
+  overflow: hidden;
+}
+
+.omnitime-daynav__label {
+  min-width: 11em;
+  margin-left: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.omnitime-daynav__week {
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ot-text-muted);
+  white-space: nowrap;
+}
+
 .omnitime-daynav__btn {
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-md);
   padding: 3px 9px;
   cursor: pointer;
-  color: #555;
+  color: var(--ot-text-secondary);
   font-size: 13px;
 }
-.omnitime-daynav__btn:hover { background: #f4f4f4; }
 
+.omnitime-daynav__btn:hover:not(:disabled) {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-daynav__btn .ot-svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* In the segmented control the buttons share one frame, split by hairlines. */
+.omnitime-daynav__group .omnitime-daynav__btn {
+  border: none;
+  border-radius: 0;
+}
+
+.omnitime-daynav__group .omnitime-daynav__btn + .omnitime-daynav__btn {
+  border-left: 1px solid var(--ot-border);
+}
+
+.omnitime-daynav__today {
+  padding: 3px 12px;
+  font-weight: 600;
+}
+
+/* Disabled, not hidden: "Today" on today (the layout never jumps). */
+.omnitime-daynav__btn:disabled {
+  background: var(--ot-bg-subtle);
+  color: var(--ot-text-subtle);
+  cursor: default;
+}
+
+/* "?" (keyboard shortcuts) at the right end of the nav. */
+.omnitime-daynav__keys {
+  margin-left: auto;
+  min-width: 28px;
+  padding: 3px 0;
+  font-weight: 700;
+  border-radius: var(--ot-radius-pill);
+}
+
+/* Full-width timeline by default; the form is a side pane shown only on add. */
 .omnitime-myday__cols {
   display: flex;
   gap: 16px;
   align-items: flex-start;
 }
-/* Full-width timeline by default; the form is a side pane shown only on add. */
+
 .omnitime-myday__timeline {
   flex: 1 1 100%;
-  max-height: 52vh;
+  max-height: 68vh;
   overflow-y: auto;
+  /* Room for the 00:00 / 24:00 labels, which sit half above/below the grid. */
+  padding: 8px 0;
+  box-sizing: border-box;
+  background-color: var(--ot-bg-sunken);
+  border-radius: var(--ot-radius-lg);
 }
-.omnitime-myday__form { display: none; flex: 0 0 340px; }
-.omnitime-myday__cols--form-open .omnitime-myday__timeline { flex: 1 1 auto; min-width: 0; }
-.omnitime-myday__cols--form-open .omnitime-myday__form { display: block; }
 
+.omnitime-myday__form {
+  display: none;
+  flex: 0 0 340px;
+}
+
+.omnitime-myday__cols--form-open .omnitime-myday__timeline {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.omnitime-myday__cols--form-open .omnitime-myday__form {
+  display: block;
+}
+
+/* Day switch: subtle in-flight cue only (no flash; content swaps on arrival) */
+.omnitime-myday--busy .omnitime-myday__timeline {
+  cursor: progress;
+}
+
+/* Footer: "+ Add entry" (left) ........ Total 5:30 (grouped, right) */
 .omnitime-myday__total {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  border-top: 1px solid #e5e5e5;
+  gap: 10px;
+  border-top: 1px solid var(--ot-border);
   margin-top: 10px;
   padding-top: 10px;
   font-size: 14px;
-  color: #666;
-}
-.omnitime-myday__total strong { color: #333; font-size: 16px; }
-
-/* Timeline grid */
-.omnitime-tl {
-  position: relative;
-  margin-left: 44px;
-  border-left: 1px solid #e5e5e5;
-  touch-action: none;
-}
-.omnitime-tl__hour {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 1px dashed #eee;
-}
-.omnitime-tl__hourlabel {
-  position: absolute;
-  left: -44px;
-  top: -7px;
-  font-size: 11px;
-  color: #aaa;
-  width: 40px;
-  text-align: right;
-}
-.omnitime-tl__entry {
-  position: absolute;
-  left: 6px;
-  right: 4px;
-  background: #f1f4f8;
-  border: 1px solid #d9e1ec;
-  border-radius: 5px;
-  padding: 3px 7px;
-  overflow: hidden;
-  box-sizing: border-box;
-  cursor: default;
-}
-.omnitime-tl__entrytitle {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.omnitime-tl__lock { font-weight: 400; color: #999; }
-.omnitime-tl__entrymeta {
-  display: block;
-  font-size: 11px;
-  color: #888;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.omnitime-tl__sel {
-  position: absolute;
-  left: 6px;
-  right: 4px;
-  background: rgba(235, 245, 255, 0.95);
-  border: 1.5px solid #1f75cb;
-  border-radius: 5px;
-  box-sizing: border-box;
-}
-.omnitime-tl__seltext {
-  display: block;
-  padding: 3px 7px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1f75cb;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.omnitime-tl__handle {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 34px;
-  height: 8px;
-  border-radius: 99px;
-  background: #1f75cb;
-  cursor: ns-resize;
-}
-.omnitime-tl__handle--top { top: -4px; }
-.omnitime-tl__handle--bottom { bottom: -4px; }
-
-/* New-entry form */
-.omnitime-form {
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 13px;
-}
-.omnitime-form__head { font-weight: 600; margin-bottom: 10px; }
-.omnitime-form__when { color: #999; font-weight: 400; }
-
-.omnitime-target {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #e7f0fb;
-  border: 1px solid #cfe0f5;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-}
-.omnitime-target__body { flex: 1; display: flex; flex-direction: column; }
-.omnitime-target__kicker { font-size: 11px; color: #1f75cb; }
-.omnitime-target__label { font-size: 13px; font-weight: 600; color: #14538f; }
-.omnitime-target__reset {
-  background: none; border: none; cursor: pointer;
-  color: #1f75cb; font-size: 18px; line-height: 1; padding: 0 4px;
+  color: var(--ot-text-muted);
 }
 
-.omnitime-form__hint { font-size: 12px; color: #999; margin-bottom: 6px; }
-
-.omnitime-search { position: relative; margin-bottom: 10px; }
-.omnitime-search__input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 13px;
-}
-.omnitime-search__results {
-  position: absolute;
-  z-index: 5;
-  left: 0; right: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  margin-top: 2px;
-  max-height: 220px;
-  overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-}
-.omnitime-search__item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-bottom: 1px solid #f0f0f0;
-  padding: 7px 10px;
-  cursor: pointer;
-}
-.omnitime-search__item:hover { background: #f4f8fd; }
-.omnitime-search__kicker { font-size: 11px; color: #888; }
-.omnitime-search__label { font-size: 13px; color: #333; }
-.omnitime-search__id { color: #999; }
-.omnitime-search__empty { padding: 8px 10px; color: #999; }
-
-.omnitime-form__row { display: flex; gap: 10px; margin-bottom: 10px; }
-.omnitime-form__row label {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 12px;
-  color: #666;
-}
-.omnitime-form__row input {
-  padding: 7px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 13px;
-}
-.omnitime-f-comment {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-bottom: 12px;
-  resize: vertical;
+.omnitime-myday__total strong {
+  color: var(--ot-text);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
-.omnitime-freq { border-top: 1px solid #f0f0f0; padding-top: 10px; margin-bottom: 12px; }
-.omnitime-freq__title { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 8px; }
-/* One full-width tag per row: title left, usual duration right. */
-.omnitime-freq__chips { display: flex; flex-direction: column; gap: 6px; }
-.omnitime-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 12px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  background: #fafafa;
-  border: 1px solid #e5e5e5;
-  cursor: pointer;
-  color: #444;
-  text-align: left;
-}
-.omnitime-chip:hover { background: #eef; border-color: #cfe0f5; }
-.omnitime-chip .ot-ico { color: #1f75cb; }
-.omnitime-chip__dur { margin-left: auto; flex-shrink: 0; color: #999; font-variant-numeric: tabular-nums; }
-
-.omnitime-form__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.omnitime-form__msg { flex: 1; font-size: 12px; color: #666; }
-.omnitime-form__msg--err { color: #d9534f; }
-.omnitime-save {
-  background: #1f75cb;
-  color: #fff;
-  border: none;
-  padding: 9px 18px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.omnitime-save:hover { background: #195fa6; }
-.omnitime-save:disabled { opacity: 0.6; cursor: default; }
-
-/* ============================================================
-   OmniTime - visual polish (inline SVG icons + refinements)
-   ============================================================ */
-
-.ot-svg { width: 16px; height: 16px; flex-shrink: 0; display: inline-block; vertical-align: -3px; }
-
-/* Modal: softer corners + shadow */
-.omnitime-modal { border-radius: 10px; box-shadow: 0 12px 32px rgba(20, 30, 50, 0.22); }
-.omnitime-modal-header { padding: 10px 14px 0; align-items: flex-start; border-bottom: none; }
-.omnitime-modal-content { border-top: 1px solid #ececec; }
-
-/* Tabs */
-.omnitime-tab { display: inline-flex; align-items: center; gap: 7px; }
-.omnitime-tab .ot-svg { width: 16px; height: 16px; }
-
-.omnitime-modal-close { display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 6px; }
-.omnitime-modal-close .ot-svg { width: 18px; height: 18px; }
-.omnitime-modal-close:hover { background: #f4f4f4; }
-
-/* Loading / unavailable states */
-.omnitime-loading { display: flex; align-items: center; justify-content: center; gap: 8px; }
-.omnitime-loading .ot-svg { width: 18px; height: 18px; color: #1f75cb; }
-.omnitime-empty__sub { display: block; color: #999; font-size: 13px; margin-top: 3px; }
-.omnitime-unavailable { display: flex; gap: 12px; align-items: flex-start; text-align: left; }
-.omnitime-unavailable .ot-svg { width: 22px; height: 22px; color: #1f75cb; margin-top: 2px; }
-.omnitime-unavailable strong { display: block; color: #333; }
-
-/* Day navigation chevrons */
-.omnitime-daynav__btn { display: inline-flex; align-items: center; justify-content: center; }
-.omnitime-daynav__btn .ot-svg { width: 18px; height: 18px; }
-.omnitime-daynav__today { padding: 3px 12px; }
-
-/* Target banner */
-.omnitime-target > .ot-svg { width: 18px; height: 18px; color: #1f75cb; margin-top: 1px; }
-.omnitime-target__reset { display: inline-flex; align-items: center; }
-.omnitime-target__reset .ot-svg { width: 14px; height: 14px; }
-
-/* Search field icon */
-.omnitime-search__icon { position: absolute; left: 9px; top: 8px; color: #aaa; pointer-events: none; line-height: 0; }
-.omnitime-search__icon .ot-svg { width: 16px; height: 16px; }
-.omnitime-search__input { padding-left: 32px; }
-
-/* Frequent section + chips */
-.omnitime-freq__title { display: flex; align-items: center; gap: 6px; }
-.omnitime-freq__title .ot-svg { width: 14px; height: 14px; }
-.omnitime-chip .ot-svg { width: 12px; height: 12px; color: #1f75cb; flex-shrink: 0; }
-.omnitime-chip__label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Timeline entry lock + selection resize icon */
-.omnitime-tl__lock { display: inline-flex; align-items: center; gap: 2px; }
-.omnitime-tl__lock .ot-svg { width: 11px; height: 11px; }
-.omnitime-tl__seltext .ot-svg { width: 12px; height: 12px; }
-
-/* Resize handles: smaller and crisper; keep grabbable on short blocks */
-.omnitime-tl__handle { width: 30px; height: 7px; }
-.omnitime-tl__handle--top { top: -4px; }
-.omnitime-tl__handle--bottom { bottom: -4px; }
-.omnitime-tl__sel--tiny .omnitime-tl__seltext { padding: 1px 7px; font-size: 11px; }
-
-/* Compact (short-duration) timeline entries: single line, no overlap */
-.omnitime-tl__entry { padding: 2px 7px; }
-.omnitime-tl__entry--compact { padding: 0 7px; display: flex; align-items: center; }
-.omnitime-tl__entry--compact .omnitime-tl__entrymeta { display: none; }
-.omnitime-tl__entry--compact .omnitime-tl__entrytitle { font-size: 11px; }
-
-/* Single-view header title (shown until the new API is detected) */
-.omnitime-headerleft { display: flex; align-items: center; min-height: 40px; }
-.omnitime-title { font-size: 16px; font-weight: 600; padding: 6px 4px; color: #333; }
-
-/* Discoverability: clickable free space + hover ghost + "+ Add entry" button */
-.omnitime-tl { cursor: pointer; }
-.omnitime-tl__entry, .omnitime-tl__sel { cursor: default; }
-.omnitime-tl__ghost {
-  position: absolute;
-  left: 6px;
-  right: 4px;
-  display: none;
-  align-items: center;
-  border: 1px dashed #9bbbe0;
-  background: rgba(31, 117, 203, 0.07);
-  border-radius: 5px;
-  pointer-events: none;
-  z-index: 1;
-}
-.omnitime-tl__ghosttext {
+.omnitime-myday__total-group {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #1f75cb;
+  align-items: baseline;
+  gap: 6px;
 }
-.omnitime-tl__ghosttext .ot-svg { width: 13px; height: 13px; }
 
 .omnitime-add-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #1f75cb;
-  color: #fff;
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--ot-radius-md);
   padding: 5px 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   margin-right: 6px;
 }
-.omnitime-add-btn:hover { background: #195fa6; }
-.omnitime-add-btn .ot-svg { width: 16px; height: 16px; }
 
-.omnitime-form__head { display: flex; align-items: center; }
-.omnitime-form__close {
-  margin-left: auto;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #999;
-  padding: 2px;
-  border-radius: 5px;
-  display: inline-flex;
-}
-.omnitime-form__close:hover { background: #f1f1f1; color: #333; }
-.omnitime-form__close .ot-svg { width: 16px; height: 16px; }
-
-/* Footer: "+ Add entry" (left) ........ Total 5:30 (grouped, right) */
-.omnitime-myday__total { justify-content: flex-start; gap: 10px; }
-.omnitime-myday__total .omnitime-add-btn { margin-right: auto; }
-.omnitime-myday__total-group { display: inline-flex; align-items: baseline; gap: 6px; }
-
-/* Editable (unbooked) timeline entries */
-.omnitime-tl__entry--editable { cursor: pointer; }
-.omnitime-tl__entry--editable:hover { background: #eaf1fb; border-color: #cfe0f5; }
-.omnitime-tl__entry--editable .omnitime-tl__lock .ot-svg { color: #1f75cb; }
-
-/* Edit-mode form: lock the issue (hide search/chips/reset), show Delete */
-.omnitime-form--edit .omnitime-form__hint,
-.omnitime-form--edit .omnitime-search,
-.omnitime-form--edit .omnitime-freq,
-.omnitime-form--edit .omnitime-target__reset { display: none; }
-.omnitime-del {
-  display: none;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: 1px solid #e0b4b4;
-  color: #c0392b;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.omnitime-form--edit .omnitime-del { display: inline-flex; }
-.omnitime-del:hover { background: #fdecea; }
-.omnitime-del--confirm { background: #c0392b; color: #fff; border-color: #c0392b; }
-.omnitime-del .ot-svg { width: 13px; height: 13px; }
-
-/* Day nav: "today" centered; prev+label left, next far right */
-.omnitime-daynav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; }
-.omnitime-daynav__left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.omnitime-daynav__label { flex: 0 1 auto; }
-.omnitime-daynav__today { justify-self: center; }
-.omnitime-daynav [data-nav="next"] { justify-self: end; }
-
-/* Frequent chips: "Project: Issue" */
-.omnitime-chip__proj { font-weight: 500; color: #444; }
-
-/* Day switch: subtle in-flight cue only (no flash; content swaps on arrival) */
-.omnitime-myday--busy .omnitime-myday__timeline { cursor: progress; }
-
-/* Closed current issue: the "Tracking for" banner becomes an amber prompt */
-.omnitime-target--warn { background: #fff7e6; border-color: #f0c36d; }
-.omnitime-target--warn .omnitime-target__kicker { color: #8a6d00; }
-.omnitime-target--warn .omnitime-target__label { color: #7a5c00; font-weight: 400; }
-.omnitime-target--warn .ot-svg { color: #c08a00; }
-
-/* Prominent error banner at the top of the new-entry/edit form */
-.omnitime-form__alert {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: #fdecea;
-  border: 1px solid #f5c2c0;
-  color: #b3261e;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  font-weight: 500;
-}
-.omnitime-form__alert .ot-svg { width: 16px; height: 16px; flex-shrink: 0; }
-.omnitime-form__alert[hidden] { display: none; }
-
-/* Calendar event blocks (tentative placeholders from iCal feed) */
-.omnitime-tl__cal-event {
-  position: absolute;
-  left: 6px;
-  right: 4px;
-  background: rgba(156, 106, 222, 0.08);
-  border: 1.5px dashed #b39ddb;
-  border-radius: 5px;
-  padding: 3px 7px;
-  overflow: hidden;
-  box-sizing: border-box;
-  cursor: pointer;
-  z-index: 0;
-}
-.omnitime-tl__cal-event:hover {
-  background: rgba(156, 106, 222, 0.16);
-  border-color: #9575cd;
-}
-.omnitime-tl__cal-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-}
-.omnitime-tl__cal-title {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6a3d9a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-.omnitime-tl__cal-dismiss {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: #9575cd;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  opacity: 0.6;
-  transition: opacity 0.2s, background 0.2s;
-  flex-shrink: 0;
-}
-.omnitime-tl__cal-dismiss:hover {
-  opacity: 1;
-  background: rgba(149, 117, 205, 0.2);
-  color: #6a3d9a;
-}
-.omnitime-tl__cal-dismiss .ot-svg {
-  width: 12px;
-  height: 12px;
-}
-.omnitime-tl__cal-title .ot-svg { width: 12px; height: 12px; color: #9575cd; flex-shrink: 0; }
-.omnitime-tl__cal-meta {
-  display: block;
-  font-size: 11px;
-  color: #9575cd;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Dimmed when the time slot is already covered by a tracked entry */
-.omnitime-tl__cal-event--covered {
-  opacity: 0.3;
-  cursor: default;
-  pointer-events: none;
-}
-.omnitime-tl__cal-event:not(.omnitime-tl__cal-event--covered) {
-  cursor: pointer;
-}
-.omnitime-tl__cal-event:not(.omnitime-tl__cal-event--covered):hover {
-  background: rgba(142, 68, 173, 0.15);
-  border-color: rgba(142, 68, 173, 0.6);
+.omnitime-myday__total .omnitime-add-btn {
+  margin-right: auto;
 }
 
-/* Calendar status & refresh button in footer */
+.omnitime-add-btn:hover {
+  background: var(--ot-accent-solid-hover);
+}
+
+/* Calendar status & refresh button in the footer */
 .omnitime-cal-status-wrap {
   margin-left: auto;
   display: flex;
@@ -742,29 +1013,3767 @@
   gap: 8px;
   font-size: 11px;
 }
+
 .omnitime-cal-status {
-  color: #666;
+  color: var(--ot-text-muted);
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.omnitime-cal-status .ot-svg { width: 12px; height: 12px; }
-.omnitime-cal-status--ok { color: #2e7d32; }
-.omnitime-cal-status--busy { color: #f57c00; font-style: italic; }
-.omnitime-cal-status--err { color: #d32f2f; }
+
+.omnitime-cal-status .ot-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.omnitime-cal-status--ok {
+  color: var(--ot-success);
+}
+
+.omnitime-cal-status--busy {
+  color: var(--ot-busy);
+  font-style: italic;
+}
+
+.omnitime-cal-status--err {
+  color: var(--ot-danger);
+}
+
 .omnitime-cal-refresh {
   background: none;
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: #666;
-  border-radius: 3px;
+  color: var(--ot-text-muted);
+  border-radius: var(--ot-radius-xs);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 .omnitime-cal-refresh:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #333;
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
 }
-.omnitime-cal-refresh .ot-svg { width: 14px; height: 14px; }
+
+.omnitime-cal-refresh .ot-svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Footer: daily target progress beside the total. */
+.omnitime-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-progress__bar {
+  position: relative;
+  width: 72px;
+  height: 5px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-muted);
+  box-shadow: inset 0 0 0 1px var(--ot-border);
+  overflow: hidden;
+}
+
+.omnitime-progress__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-accent);
+}
+
+.omnitime-progress--reached .omnitime-progress__fill,
+.omnitime-progress--over .omnitime-progress__fill {
+  background: var(--ot-success);
+}
+
+.omnitime-progress--reached .omnitime-progress__label {
+  color: var(--ot-success);
+  font-weight: 600;
+}
+
+.omnitime-progress--over .omnitime-progress__label {
+  color: var(--ot-busy);
+  font-weight: 600;
+}
+
+/* Footer: "Book 3 meetings · 2:15" (secondary, beside "Add entry"). */
+.omnitime-bookall {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--ot-bg);
+  color: var(--ot-cal-text);
+  border: 1px solid var(--ot-cal-border);
+  border-radius: var(--ot-radius-md);
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-bookall:hover {
+  background: var(--ot-cal-bg-hover);
+}
+
+.omnitime-bookall .ot-svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* The add button's auto margin moves to "Book N meetings" while it shows. */
+.omnitime-myday__total .omnitime-add-btn:has(+ .omnitime-bookall:not([hidden])) {
+  margin-right: 0;
+}
+
+.omnitime-myday__total .omnitime-bookall {
+  margin-right: auto;
+}
+
+/* Confirm popover for the bulk actions (Book meetings, Copy from ...),
+   inside the dialog so the focus trap covers it. */
+.omnitime-daypop {
+  position: absolute;
+  z-index: 9;
+  width: 380px;
+  max-width: calc(100% - 24px);
+  box-sizing: border-box;
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-lg);
+  box-shadow: var(--ot-shadow-pop);
+  padding: 12px 12px 10px;
+  font-size: 13px;
+}
+
+.omnitime-daypop__head {
+  font-weight: 600;
+  color: var(--ot-text-strong);
+  margin-bottom: 8px;
+}
+
+.omnitime-daypop__body {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.omnitime-daypop__list,
+.omnitime-daypop__skipped {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.omnitime-daypop__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: var(--ot-radius-sm);
+  cursor: pointer;
+}
+
+.omnitime-daypop__item:hover {
+  background: var(--ot-bg-subtle);
+}
+
+.omnitime-daypop__item input {
+  margin: 2px 0 0;
+  accent-color: var(--ot-accent-solid);
+}
+
+.omnitime-daypop__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.omnitime-daypop__main {
+  color: var(--ot-text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-daypop__meta {
+  color: var(--ot-text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-daypop__empty,
+.omnitime-daypop__summary {
+  margin: 4px 0 8px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-daypop__skipped li {
+  padding: 3px 0;
+  color: var(--ot-text-secondary);
+  font-size: 12px;
+}
+
+.omnitime-daypop__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.omnitime-daypop__status {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--ot-busy);
+}
+
+.omnitime-daypop__cancel,
+.omnitime-daypop__ok {
+  border-radius: var(--ot-radius-md);
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-daypop__cancel {
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  border: 1px solid var(--ot-border-strong);
+}
+
+.omnitime-daypop__ok {
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+  border: none;
+}
+
+.omnitime-daypop__ok:hover {
+  background: var(--ot-accent-solid-hover);
+}
+
+.omnitime-daypop__ok:disabled,
+.omnitime-daypop__cancel:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.omnitime-daypop .omnitime-errbox {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------
+   Timeline grid, entries, selection, ghost
+   ------------------------------------------------------------ */
+
+.omnitime-tl {
+  position: relative;
+  margin-left: 44px;
+  border-left: 1px solid var(--ot-border);
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* Working hours (settings dayStart-dayEnd): a faint band behind the grid. */
+.omnitime-tl__work {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--ot-tl-work-bg);
+  pointer-events: none;
+}
+
+.omnitime-tl__hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--ot-grid-line);
+}
+
+.omnitime-tl__hourlabel {
+  position: absolute;
+  left: -44px;
+  top: -7px;
+  font-size: 11px;
+  color: var(--ot-text-subtle);
+  width: 40px;
+  text-align: right;
+}
+
+.omnitime-tl__entry {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  background: var(--ot-entry-bg);
+  border: 1px solid var(--ot-entry-border);
+  border-radius: var(--ot-radius-md);
+  padding: 4px 8px 4px 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: default;
+  box-shadow: var(--ot-shadow-entry);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Project stripe on the left edge (colour from a hash of the project). */
+.omnitime-tl__entry::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--ot-border-strong);
+}
+
+.omnitime-tl__entry--p0::before { background: var(--ot-project-0); }
+.omnitime-tl__entry--p1::before { background: var(--ot-project-1); }
+.omnitime-tl__entry--p2::before { background: var(--ot-project-2); }
+.omnitime-tl__entry--p3::before { background: var(--ot-project-3); }
+.omnitime-tl__entry--p4::before { background: var(--ot-project-4); }
+.omnitime-tl__entry--p5::before { background: var(--ot-project-5); }
+.omnitime-tl__entry--p6::before { background: var(--ot-project-6); }
+.omnitime-tl__entry--p7::before { background: var(--ot-project-7); }
+
+/* Keyboard focus: above neighbours and calendar blocks, ring via the token. */
+.omnitime-tl__entry:focus-visible {
+  z-index: 20;
+  outline-offset: 1px;
+}
+
+/* While dragged/resized: above its neighbours and the calendar blocks. */
+.omnitime-tl__entry--lifted {
+  z-index: 100;
+}
+
+/* A change of this entry is on its way to the server (optimistic). */
+.omnitime-tl__entry--pending {
+  opacity: 0.72;
+}
+
+/* Alt/Ctrl-drag copies: the original stays, a dashed ghost follows. */
+.omnitime-tl__entry--copying,
+.omnitime-tl__entry--copying * {
+  cursor: copy;
+}
+
+.omnitime-tl__entry--dupghost {
+  z-index: 101;
+  border: 1px dashed var(--ot-accent);
+  background: var(--ot-accent-faint);
+  box-shadow: var(--ot-shadow-entry-hover);
+  pointer-events: none;
+}
+
+.omnitime-tl__dupbadge {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px 1px 4px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.omnitime-tl__dupbadge .ot-svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Entry anatomy (same order as the Week cards): a meta line (time, project,
+   right-aligned duration), the title (issue, then its #id in muted regular
+   weight) and a comment line with a speech glyph. */
+.omnitime-tl__entry-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 16px;
+}
+
+.omnitime-tl__entrymeta {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ot-text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-tl__time {
+  flex: none;
+}
+
+/* The project gives way first (stripe + tooltip carry it). */
+.omnitime-tl__entryctx {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-tl__entryctx::before {
+  content: "\00b7\00a0";
+}
+
+.omnitime-tl__entrytitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ot-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The issue number right after the label: muted, regular weight, no chip. */
+.omnitime-entryid {
+  font-weight: 400;
+  color: var(--ot-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-tl__entrycomment {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 1px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-tl__entrycomment .ot-svg {
+  width: 11px;
+  height: 11px;
+  margin-top: 2px;
+}
+
+.omnitime-tl__commenttext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tall entries (>= 100px): two lines for the comment. */
+.omnitime-tl__entry--tall .omnitime-tl__commenttext {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.omnitime-tl__badges {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+/* Duration: tabular text, no chip. A lock glyph before it marks a booked
+   (read-only) entry. */
+.omnitime-tl__dur {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.omnitime-tl__dur .ot-svg {
+  width: 11px;
+  height: 11px;
+  color: var(--ot-text-muted);
+}
+
+/* "Open issue" icon link (new tab). */
+.omnitime-tl__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border-radius: var(--ot-radius-xs);
+  color: var(--ot-text-muted);
+  cursor: pointer;
+}
+
+.omnitime-tl__link:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-accent-text);
+}
+
+.omnitime-tl__link .ot-svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Short entries (< 75px): one line each for meta, title and comment. */
+.omnitime-tl__entry--short {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.omnitime-tl__entry--short .omnitime-tl__entrytitle {
+  white-space: nowrap;
+  -webkit-line-clamp: 1;
+}
+
+/* Compact (< 58px) entries: a single row "09:00-09:15  Title #id  0:15". */
+.omnitime-tl__entry--compact {
+  padding: 0 8px 0 12px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.omnitime-tl__entry--compact .omnitime-tl__entrymeta {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: normal;
+}
+
+.omnitime-tl__entry--compact .omnitime-tl__entrytitle {
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* "Project / Issue title #id": the project (muted weight) keeps its place, the
+   issue title takes the ellipsis. */
+.omnitime-tl__entrywho {
+  display: flex;
+  align-items: baseline;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.omnitime-tl__entryproj {
+  flex: 0 1 auto;
+  min-width: 3em;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-tl__entrysep {
+  flex: none;
+  margin: 0 4px;
+  font-weight: 400;
+  color: var(--ot-text-subtle);
+}
+
+/* The comment follows the title on the same row and gives way first. */
+.omnitime-tl__entry--compact .omnitime-tl__entrycomment {
+  flex: 0 3 auto;
+  align-items: center;
+  margin: 0;
+  font-size: 11px;
+  line-height: normal;
+}
+
+.omnitime-tl__entry--compact .omnitime-tl__entrycomment .ot-svg {
+  margin-top: 0;
+}
+
+.omnitime-tl__entry--compact .omnitime-tl__dur {
+  font-size: 11px;
+}
+
+/* Under 15 minutes (drawn at the minimum height): lighter, so it doesn't
+   read as a longer entry. */
+.omnitime-tl__entry--tiny {
+  background: var(--ot-bg-subtle);
+  border-style: dashed;
+  border-color: var(--ot-border-strong);
+  box-shadow: none;
+}
+
+.omnitime-tl__entry--tiny .omnitime-tl__entrytitle {
+  font-weight: 500;
+  color: var(--ot-text-secondary);
+}
+
+.omnitime-tl__spacer {
+  flex: 1;
+}
+
+/* Booked (read-only): a muted surface with a subtle diagonal hatch. */
+.omnitime-tl__entry--booked {
+  background-color: var(--ot-booked-bg);
+  background-image: repeating-linear-gradient(135deg, var(--ot-booked-hatch) 0 1px, transparent 1px 7px);
+  border-color: var(--ot-booked-border);
+  box-shadow: none;
+}
+
+/* Editable (unbooked) entries */
+.omnitime-tl__entry--editable {
+  cursor: pointer;
+}
+
+.omnitime-tl__entry--editable:hover {
+  background: var(--ot-accent-faint);
+  border-color: var(--ot-accent-border);
+  box-shadow: var(--ot-shadow-entry-hover);
+}
+
+/* New-entry selection */
+.omnitime-tl__sel {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  background: var(--ot-sel-bg);
+  border: 1.5px solid var(--ot-accent);
+  border-radius: var(--ot-radius-sm);
+  box-sizing: border-box;
+  pointer-events: none;
+  cursor: default;
+}
+
+.omnitime-tl__seltext {
+  display: block;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-accent-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: right;
+}
+
+.omnitime-tl__seltext .ot-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.omnitime-tl__sel--tiny .omnitime-tl__seltext {
+  padding: 0 7px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* Shorter than its label (5-10 minute slots, drawn to the time scale): the
+   label floats as a small tag centred on the box. */
+.omnitime-tl__sel--micro .omnitime-tl__seltext {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid var(--ot-accent);
+  border-radius: var(--ot-radius-sm);
+  background: var(--ot-bg);
+}
+
+/* Resize handles: on the selection they straddle the edges; keep them
+   grabbable on short blocks. */
+.omnitime-tl__handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 14px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-accent);
+  cursor: ns-resize;
+  pointer-events: auto;
+}
+
+.omnitime-tl__handle--top {
+  top: -7px;
+}
+
+.omnitime-tl__handle--bottom {
+  bottom: -7px;
+}
+
+/* A short selection (drawn to the time scale): smaller handles so the two
+   don't pile up on each other. */
+.omnitime-tl__sel--tiny > .omnitime-tl__handle {
+  width: 24px;
+  height: 8px;
+}
+
+.omnitime-tl__sel--tiny > .omnitime-tl__handle--top {
+  top: -4px;
+}
+
+.omnitime-tl__sel--tiny > .omnitime-tl__handle--bottom {
+  bottom: -4px;
+}
+
+.omnitime-tl__sel--micro > .omnitime-tl__handle {
+  width: 20px;
+  height: 6px;
+}
+
+.omnitime-tl__sel--micro > .omnitime-tl__handle--top {
+  top: -3px;
+}
+
+.omnitime-tl__sel--micro > .omnitime-tl__handle--bottom {
+  bottom: -3px;
+}
+
+/* On editable entries the handles sit inside the border (entries clip their
+   overflow) and only show on hover or while resizing. */
+.omnitime-tl__entry .omnitime-tl__handle {
+  height: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.omnitime-tl__entry .omnitime-tl__handle--top {
+  top: 1px;
+}
+
+.omnitime-tl__entry .omnitime-tl__handle--bottom {
+  bottom: 1px;
+}
+
+.omnitime-tl__entry--editable:hover .omnitime-tl__handle,
+.omnitime-tl__entry--resizing .omnitime-tl__handle {
+  opacity: 1;
+}
+
+/* Discoverability: hover ghost over free space */
+.omnitime-tl__ghost {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  display: none;
+  align-items: center;
+  border: 1px dashed var(--ot-ghost-border);
+  background: var(--ot-ghost-bg);
+  border-radius: var(--ot-radius-sm);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.omnitime-tl__ghost--visible {
+  display: flex;
+}
+
+.omnitime-tl__ghosttext {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ot-accent-text);
+}
+
+.omnitime-tl__ghosttext .ot-svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Empty day hint (hidden while the form is open). */
+.omnitime-tl__empty {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  font-size: 12px;
+  color: var(--ot-text-muted);
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.omnitime-myday__cols--form-open .omnitime-tl__empty {
+  display: none;
+}
+
+.omnitime-tl__emptytext {
+  display: block;
+}
+
+/* "Copy from Wed 21 Oct" under the empty-day hint. */
+.omnitime-tl__copy {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  background: var(--ot-bg);
+  color: var(--ot-accent-text);
+  border: 1px solid var(--ot-accent-border);
+  border-radius: var(--ot-radius-md);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-tl__copy:hover {
+  background: var(--ot-accent-subtle);
+}
+
+.omnitime-tl__copy .ot-svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Untracked gap within working hours: "0:45 untracked · Fill". */
+.omnitime-tl__gap {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 10px;
+  border: 1px dashed var(--ot-border-strong);
+  border-radius: var(--ot-radius-sm);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ot-text-muted);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.omnitime-tl__gapfill {
+  pointer-events: auto;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-xs);
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ot-accent-text);
+  cursor: pointer;
+}
+
+.omnitime-tl__gapfill:hover {
+  background: var(--ot-accent-subtle);
+}
+
+/* A pause reported as a break (entries[].break_label): a dotted rule with the
+   text centred on it, in an 18 px band that core.js keeps clear of entries
+   and calendar placeholders. */
+.omnitime-tl__break {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  height: 18px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ot-text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.omnitime-tl__break::before,
+.omnitime-tl__break::after {
+  content: "";
+  flex: 1 1 0;
+  min-width: 12px;
+  border-top: 1px dotted var(--ot-border-strong);
+}
+
+.omnitime-tl__break .omnitime-tl__gapfill {
+  margin-left: -4px;
+}
+
+/* Today: the "now" line with its time in the hour gutter. */
+.omnitime-tl__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px solid var(--ot-now);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.omnitime-tl__nowlabel {
+  position: absolute;
+  left: -42px;
+  top: -9px;
+  padding: 1px 4px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-now);
+  color: var(--ot-on-now);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+/* Render errors (debug aid, should never show) */
+.omnitime-tl__debug {
+  position: absolute;
+  bottom: 20px;
+  color: var(--ot-danger);
+}
+
+.omnitime-tl__debug--map {
+  bottom: 40px;
+}
+
+/* ------------------------------------------------------------
+   Calendar placeholders (tentative blocks from the calendar feed)
+   ------------------------------------------------------------ */
+
+.omnitime-tl__cal-event {
+  position: absolute;
+  left: 6px;
+  right: 4px;
+  background: var(--ot-cal-bg);
+  border: 1.5px dashed var(--ot-cal-border);
+  border-radius: var(--ot-radius-sm);
+  padding: 3px 7px;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.omnitime-tl__cal-event:hover {
+  background: var(--ot-cal-bg-hover);
+  border-color: var(--ot-cal-border-hover);
+  box-shadow: var(--ot-shadow-cal-hover);
+  z-index: 10;
+}
+
+/* While dragged (beats :hover). */
+.omnitime-tl__cal-event.omnitime-tl__cal-event--lifted {
+  z-index: 100;
+}
+
+.omnitime-tl__cal-event:focus-visible {
+  z-index: 20;
+  outline-offset: 1px;
+  background: var(--ot-cal-bg-hover);
+}
+
+/* Already covered by a tracked entry: hidden (also when compact, whose
+   display:flex comes later). */
+.omnitime-tl__cal-event.omnitime-tl__cal-event--covered {
+  display: none;
+}
+
+.omnitime-tl__cal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.omnitime-tl__cal-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-cal-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.omnitime-tl__cal-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.omnitime-tl__cal-title .ot-svg {
+  width: 12px;
+  height: 12px;
+  color: var(--ot-cal-muted);
+}
+
+.omnitime-tl__cal-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The issue remembered for this event ("→ #5 Sync issue"). */
+.omnitime-tl__cal-issue {
+  flex-shrink: 2;
+  min-width: 0;
+  max-width: 50%;
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--ot-cal-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Inline time, only on compact blocks (the meta line is hidden there). */
+.omnitime-tl__cal-meta-inline {
+  display: none;
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--ot-text-subtle);
+  white-space: nowrap;
+}
+
+.omnitime-tl__cal-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--ot-cal-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.omnitime-tl__cal-dismiss {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--ot-cal-muted);
+  border-radius: var(--ot-radius-xs);
+  opacity: 0.6;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.omnitime-tl__cal-dismiss:hover,
+.omnitime-tl__cal-dismiss:focus-visible {
+  opacity: 1;
+  background: var(--ot-cal-dismiss-hover);
+  color: var(--ot-cal-text);
+}
+
+.omnitime-tl__cal-dismiss .ot-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.omnitime-tl__cal-event--compact {
+  display: flex;
+  align-items: center;
+  padding: 1px 6px;
+}
+
+.omnitime-tl__cal-event--compact .omnitime-tl__cal-top {
+  width: 100%;
+  height: 100%;
+}
+
+.omnitime-tl__cal-event--compact .omnitime-tl__cal-title {
+  font-size: 11px;
+}
+
+.omnitime-tl__cal-event--compact .omnitime-tl__cal-meta-inline {
+  display: inline-block;
+}
+
+.omnitime-tl__cal-event--compact .omnitime-tl__cal-meta {
+  display: none;
+}
+
+/* Hover popover (mounted in the shadow root, outside the modal) */
+.omnitime-tl__cal-popover {
+  position: fixed;
+  z-index: 2147483001;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-lg);
+  box-shadow: var(--ot-shadow-pop);
+  padding: 10px 12px;
+  max-width: 280px;
+  min-width: 180px;
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--ot-text);
+}
+
+.omnitime-tl__cal-popover-head {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ot-cal-pop-title);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.omnitime-tl__cal-popover-time {
+  font-size: 11px;
+  color: var(--ot-text-muted);
+  margin-bottom: 4px;
+}
+
+.omnitime-tl__cal-popover-loc {
+  font-size: 11px;
+  color: var(--ot-text-secondary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.omnitime-tl__cal-popover-desc {
+  font-size: 11px;
+  color: var(--ot-text-secondary);
+  margin-top: 4px;
+  margin-bottom: 6px;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--ot-cal-pop-desc-bg);
+  padding: 6px;
+  border-radius: var(--ot-radius-xs);
+  border: 1px solid var(--ot-cal-pop-desc-border);
+}
+
+.omnitime-tl__cal-popover-hint {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ot-cal-pop-hint);
+  border-top: 1px solid var(--ot-cal-pop-hint-border);
+  padding-top: 5px;
+  margin-top: 4px;
+}
+
+.omnitime-tl__cal-popover-hint--covered {
+  color: var(--ot-text-subtle);
+}
+
+/* ------------------------------------------------------------
+   Toast (ui.toast): one message at the bottom of the dialog
+   ------------------------------------------------------------ */
+
+/* The dialog is the toast's positioning context. */
+.omnitime-modal {
+  position: relative;
+}
+
+.omnitime-toast-region {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.omnitime-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px 9px 14px;
+  background: var(--ot-toast-bg);
+  color: var(--ot-toast-text);
+  border-radius: var(--ot-radius-lg);
+  box-shadow: var(--ot-shadow-pop);
+  font-size: 13px;
+}
+
+.omnitime-toast__action {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--ot-toast-action);
+  color: var(--ot-toast-action);
+  border-radius: var(--ot-radius-md);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-toast__action:hover {
+  background: var(--ot-toast-action);
+  color: var(--ot-toast-bg);
+}
+
+/* A failed change (rolled back): alert icon + a stripe in the error tone. */
+.omnitime-toast--error {
+  box-shadow: inset 3px 0 0 var(--ot-toast-error), var(--ot-shadow-pop);
+}
+
+.omnitime-toast--error > .ot-svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-right: -6px;
+  color: var(--ot-toast-error);
+}
+
+/* ------------------------------------------------------------
+   Keyboard shortcuts popover ("?", mounted in .omnitime-root)
+   ------------------------------------------------------------ */
+
+.omnitime-keys {
+  position: fixed;
+  z-index: 2147483001;
+  box-sizing: border-box;
+  width: 330px;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 20px);
+  overflow: auto;
+  padding: 10px 14px 12px;
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-lg);
+  box-shadow: var(--ot-shadow-pop);
+  font-size: 12px;
+}
+
+.omnitime-keys:focus {
+  outline: none;
+}
+
+.omnitime-keys__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.omnitime-keys__title {
+  font-size: 13px;
+  color: var(--ot-text-strong);
+}
+
+.omnitime-keys__close {
+  display: inline-flex;
+  padding: 3px;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-sm);
+  color: var(--ot-text-muted);
+  cursor: pointer;
+}
+
+.omnitime-keys__close:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-keys__close .ot-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.omnitime-keys__group + .omnitime-keys__group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ot-border-subtle);
+}
+
+.omnitime-keys__grouptitle {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-keys__list {
+  margin: 0;
+}
+
+.omnitime-keys__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.omnitime-keys__row dt {
+  flex: 0 0 112px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.omnitime-keys__row dd {
+  margin: 0;
+  color: var(--ot-text-secondary);
+}
+
+.omnitime-keys__kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 5px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  color: var(--ot-text-strong);
+  background: var(--ot-bg-muted);
+  border: 1px solid var(--ot-border);
+  border-bottom-width: 2px;
+  border-radius: var(--ot-radius-xs);
+}
+
+.omnitime-keys__plus {
+  color: var(--ot-text-subtle);
+  font-size: 10px;
+}
+
+/* ------------------------------------------------------------
+   Segmented control: one bordered strip of equal cells sharing hairlines, an
+   optional muted lead cell (the "+"). Shared by the form's quick durations
+   and the GitLab sidebar widget's quick row (both read these tokens).
+   ------------------------------------------------------------ */
+
+.omnitime-seg {
+  display: flex;
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-md);
+  overflow: hidden;
+  background: var(--ot-bg);
+}
+
+.omnitime-seg__lead {
+  display: flex;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  background: var(--ot-bg-subtle);
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-seg__lead svg,
+.omnitime-seg__lead .ot-svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.omnitime-seg__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-left: 1px solid var(--ot-border);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ot-accent-text);
+  cursor: pointer;
+}
+
+.omnitime-seg__btn:first-child {
+  border-left: 0;
+}
+
+.omnitime-seg__btn:hover:not(:disabled) {
+  background: var(--ot-accent-subtle);
+}
+
+/* The selected segment (a toggle group): tinted with an accent ring. */
+.omnitime-seg__btn[aria-pressed="true"] {
+  background: var(--ot-accent-subtle);
+  box-shadow: inset 0 0 0 1.5px var(--ot-accent);
+  color: var(--ot-accent-strong);
+}
+
+.omnitime-seg__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.omnitime-seg .omnitime-seg__btn:focus-visible {
+  outline: 2px solid var(--ot-focus);
+  outline-offset: -2px;
+}
+
+/* ------------------------------------------------------------
+   New-entry / edit form
+   ------------------------------------------------------------ */
+
+.omnitime-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-lg);
+  padding: 12px;
+  font-size: 13px;
+}
+
+.omnitime-form__head {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+/* Save failures: shown at the top, only when there is one. */
+.omnitime-form__alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ot-danger-bg);
+  border: 1px solid var(--ot-danger-border);
+  color: var(--ot-danger-text);
+  border-radius: var(--ot-radius-md);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* The issue target is one plain line: project stripe, "Project / Issue #id",
+   then star / Change / back-to-current on the right. */
+.omnitime-target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.omnitime-target__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+/* The controls on the right stay tight so the title gets the width. */
+.omnitime-target__line .omnitime-star {
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+}
+
+.omnitime-target__stripe {
+  flex: none;
+  align-self: stretch;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--ot-border-strong);
+}
+
+.omnitime-target__stripe--p0 { background: var(--ot-project-0); }
+.omnitime-target__stripe--p1 { background: var(--ot-project-1); }
+.omnitime-target__stripe--p2 { background: var(--ot-project-2); }
+.omnitime-target__stripe--p3 { background: var(--ot-project-3); }
+.omnitime-target__stripe--p4 { background: var(--ot-project-4); }
+.omnitime-target__stripe--p5 { background: var(--ot-project-5); }
+.omnitime-target__stripe--p6 { background: var(--ot-project-6); }
+.omnitime-target__stripe--p7 { background: var(--ot-project-7); }
+
+.omnitime-target__text {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.omnitime-target__proj {
+  flex: 0 1 auto;
+  min-width: 4em;
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-target__sep {
+  flex: none;
+  margin: 0 4px;
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-target__label {
+  flex: 0 6 auto; /* the issue title is cut before the project is */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--ot-text-strong);
+}
+
+/* Why this issue (calendar bookings only), under the line. */
+.omnitime-target__kicker {
+  padding-left: 12px;
+  font-size: 12px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-target__change {
+  flex: none;
+  margin-left: -4px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: var(--ot-radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-accent-text);
+  cursor: pointer;
+}
+
+.omnitime-target__change:hover {
+  background: var(--ot-accent-subtle);
+}
+
+.omnitime-target__reset {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-left: -4px;
+  padding: 3px;
+  border: 0;
+  border-radius: var(--ot-radius-sm);
+  background: none;
+  color: var(--ot-text-subtle);
+  cursor: pointer;
+}
+
+.omnitime-target__reset:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
+}
+
+.omnitime-target__reset .ot-svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* No issue yet: the label is a prompt, not a title. */
+.omnitime-target--empty .omnitime-target__label {
+  font-weight: 400;
+  color: var(--ot-text-muted);
+}
+
+/* Closed current issue: amber text instead of a banner. */
+.omnitime-target--warn .omnitime-target__kicker,
+.omnitime-target--warn .omnitime-target__label {
+  color: var(--ot-warn-text);
+}
+
+.omnitime-target--warn .omnitime-target__stripe {
+  background: var(--ot-warn-icon);
+}
+
+/* Issue search */
+.omnitime-search {
+  position: relative;
+}
+
+.omnitime-search__icon {
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  color: var(--ot-text-subtle);
+  pointer-events: none;
+  line-height: 0;
+}
+
+.omnitime-search__input,
+.omnitime-form__time input,
+.omnitime-f-comment {
+  padding: 7px 10px;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-input-bg);
+  color: var(--ot-text);
+  font-size: 13px;
+}
+
+.omnitime-search__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 32px;
+}
+
+.omnitime-search__input::placeholder,
+.omnitime-f-comment::placeholder {
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-search__results {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  margin-top: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: var(--ot-shadow-menu);
+}
+
+.omnitime-search__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  color: var(--ot-text);
+  border: none;
+  border-bottom: 1px solid var(--ot-border-subtle);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.omnitime-search__item:hover {
+  background: var(--ot-accent-faint);
+}
+
+/* The keyboard-highlighted option (aria-activedescendant) */
+.omnitime-search__item--active,
+.omnitime-search__item--active:hover {
+  background: var(--ot-accent-subtle);
+  box-shadow: inset 3px 0 0 var(--ot-accent);
+}
+
+/* "Recent" / "Frequent" headings of the empty-query list */
+.omnitime-search__group {
+  position: sticky;
+  top: 0;
+  padding: 5px 10px;
+  background: var(--ot-bg-sunken);
+  border-bottom: 1px solid var(--ot-border-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-search__item:focus-visible {
+  outline-offset: -2px;
+}
+
+.omnitime-search__kicker {
+  font-size: 11px;
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-search__label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ot-text);
+}
+
+/* A frequent issue's usual duration, right-aligned. */
+.omnitime-search__dur {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--ot-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-search__id,
+.omnitime-search__empty {
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-search__empty {
+  padding: 8px 10px;
+}
+
+/* Time row: date (quiet text button), start, "for", duration, computed end.
+   It wraps instead of overflowing the column (e.g. the "only 0:15 free" note). */
+.omnitime-form__time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.omnitime-form__time input {
+  min-width: 0;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-f-start,
+.omnitime-f-dur {
+  flex: 0 0 64px;
+  width: 64px;
+  text-align: center;
+}
+
+.omnitime-f-date {
+  flex: 0 0 9.5em;
+  width: 9.5em;
+}
+
+.omnitime-f-datebtn {
+  flex: none;
+  margin: 0 -2px 0 -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--ot-radius-sm);
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ot-text-secondary);
+  text-decoration: underline dotted var(--ot-border-strong);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.omnitime-f-datebtn:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
+}
+
+.omnitime-form__for {
+  flex: none;
+  margin: 0 -2px;
+  font-size: 12px;
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-f-end {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ot-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-form__time input[aria-invalid="true"] {
+  border-color: var(--ot-danger);
+}
+
+/* Validation messages: only while there is one, under the time row. */
+.omnitime-form__errs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.omnitime-f-err {
+  color: var(--ot-danger);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.omnitime-f-comment {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  max-height: 144px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+}
+
+/* Actions: [Save] Cancel ............ Delete (edit mode only) */
+.omnitime-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.omnitime-form__msg {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-form__msg--err {
+  color: var(--ot-danger);
+}
+
+.omnitime-save,
+.omnitime-notice__settings {
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--ot-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-save:hover,
+.omnitime-notice__settings:hover {
+  background: var(--ot-accent-solid-hover);
+}
+
+.omnitime-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Cancel and Delete: quiet text buttons (Delete deletes at once, Undo is in
+   the toast). */
+.omnitime-form__close,
+.omnitime-del {
+  padding: 8px;
+  border: 0;
+  border-radius: var(--ot-radius-md);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.omnitime-form__close {
+  color: var(--ot-text-secondary);
+}
+
+.omnitime-form__close:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
+}
+
+.omnitime-del {
+  display: none;
+  color: var(--ot-danger);
+}
+
+.omnitime-del:hover {
+  background: var(--ot-danger-bg);
+}
+
+/* Edit mode: the issue is locked (no Change / search / reset), Delete shows */
+.omnitime-form--edit .omnitime-search,
+.omnitime-form--edit .omnitime-target__change,
+.omnitime-form--edit .omnitime-target__reset {
+  display: none;
+}
+
+.omnitime-form--edit .omnitime-del {
+  display: inline-flex;
+}
+
+/* ------------------------------------------------------------
+   Starred issues: star toggle on search results and the picked issue
+   ------------------------------------------------------------ */
+
+.omnitime-star {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-sm);
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-star:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-star);
+}
+
+.omnitime-star--on {
+  color: var(--ot-star);
+}
+
+/* A result row: the option plus its star beside it. */
+.omnitime-search__row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--ot-border-subtle);
+}
+
+.omnitime-search__row .omnitime-search__item {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.omnitime-search__row .omnitime-search__star {
+  margin-right: 4px;
+}
+
+/* ------------------------------------------------------------
+   Absences ("Absent" / "Absent ½"): week strip + Week tab
+   ------------------------------------------------------------ */
+
+.omnitime-absent {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-absent-bg);
+  color: var(--ot-absent-text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* Absent days in the strip: dimmed like weekends, chip below the total. */
+.omnitime-week__day--absent {
+  background: transparent;
+}
+
+.omnitime-week__day--absent .omnitime-week__label,
+.omnitime-week__day--absent .omnitime-week__total {
+  color: var(--ot-text-subtle);
+  font-weight: 400;
+}
+
+/* Under target (past day): the total takes the meter's colour. */
+.omnitime-week__day--under .omnitime-week__total {
+  color: var(--ot-meter-under);
+}
+
+/* ------------------------------------------------------------
+   "Week" tab: Monday-Sunday columns (rows on narrow widths)
+   ------------------------------------------------------------ */
+
+.omnitime-wk {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  min-height: 0;
+}
+
+.omnitime-wk__nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 0;
+  margin-bottom: 12px;
+}
+
+.omnitime-wk__who {
+  position: relative;
+  flex: none;
+  margin-right: 12px;
+}
+
+.omnitime-wk__who[hidden] {
+  display: none;
+}
+
+/* Person picker (PMs): "You" / a colleague's name + chevron, same frame as the
+   week buttons; the combobox opens right under it. */
+.omnitime-wk__whobtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 3px 8px 3px 10px;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-md);
+  color: var(--ot-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-wk__whobtn:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-wk__whobtn[aria-expanded="true"] {
+  border-color: var(--ot-border-strong);
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-wk__whobtn--other {
+  color: var(--ot-accent-text);
+  border-color: var(--ot-accent-border);
+  background: var(--ot-accent-faint);
+}
+
+.omnitime-wk__whobtn--other:hover {
+  background: var(--ot-accent-subtle);
+}
+
+.omnitime-wk__whobtn .ot-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.omnitime-wk__whoicon,
+.omnitime-wk__whochev {
+  display: inline-flex;
+  flex: none;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-wk__whobtn--other .omnitime-wk__whoicon,
+.omnitime-wk__whobtn--other .omnitime-wk__whochev {
+  color: inherit;
+}
+
+.omnitime-wk__whoname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-wk__whopop {
+  position: absolute;
+  z-index: 6;
+  top: 100%;
+  left: 0;
+  width: 280px;
+  max-width: calc(100vw - 48px);
+  margin-top: 4px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  box-shadow: var(--ot-shadow-menu);
+}
+
+.omnitime-wk__whopop[hidden] {
+  display: none;
+}
+
+.omnitime-wk__whosearch {
+  margin-bottom: 6px;
+}
+
+.omnitime-wk__wholist {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--ot-border-subtle);
+  border-radius: var(--ot-radius-sm);
+}
+
+.omnitime-wk__whoopt {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.omnitime-wk__whoopt:last-child {
+  border-bottom: none;
+}
+
+.omnitime-wk__whocheck {
+  display: inline-flex;
+  flex: none;
+  color: var(--ot-accent-text);
+}
+
+.omnitime-wk__whocheck .ot-svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* "Viewing Dana Example's week" under the header while a colleague's week is open. */
+.omnitime-wk__viewing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 10px;
+  padding: 4px 4px 4px 10px;
+  background: var(--ot-accent-faint);
+  border: 1px solid var(--ot-accent-border);
+  border-radius: var(--ot-radius-md);
+  color: var(--ot-text-secondary);
+  font-size: 12px;
+}
+
+.omnitime-wk__viewing[hidden] {
+  display: none;
+}
+
+.omnitime-wk__viewing-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-wk__viewing strong {
+  color: var(--ot-text-strong);
+}
+
+.omnitime-wk__viewing-x {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  border-radius: var(--ot-radius-sm);
+  background: none;
+  color: var(--ot-text-muted);
+  cursor: pointer;
+}
+
+.omnitime-wk__viewing-x:hover {
+  background: var(--ot-accent-subtle);
+  color: var(--ot-text-strong);
+}
+
+.omnitime-wk__viewing-x .ot-svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* A colleague's week is read-only: heads are labels, not buttons. */
+.omnitime-wk__head--static {
+  cursor: default;
+}
+
+.omnitime-wk__head.omnitime-wk__head--static:hover {
+  background: none;
+}
+
+.omnitime-wk__back {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ot-accent-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* A name in "This issue" that opens that person's week. */
+.omnitime-personlink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ot-accent-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.omnitime-personlink:hover {
+  text-decoration: underline;
+}
+
+.omnitime-wk__weekend {
+  margin-left: 12px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.omnitime-wk__weekend[hidden] {
+  display: none;
+}
+
+.omnitime-wk__sum {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-wk__sum strong {
+  color: var(--ot-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-wk__of {
+  color: var(--ot-text-subtle);
+  font-weight: 400;
+}
+
+.omnitime-wk--busy .omnitime-wk__body {
+  opacity: 0.6;
+}
+
+.omnitime-wk__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Weekdays share the width; an empty Saturday/Sunday collapses to a narrow
+   column (label + total). */
+.omnitime-wk__grid {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.omnitime-wk__day {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  border-radius: var(--ot-radius-lg);
+  background: var(--ot-bg-subtle);
+}
+
+.omnitime-wk__day--collapsed {
+  flex: 0 0 72px;
+}
+
+.omnitime-wk__day--weekend,
+.omnitime-wk__day--absent {
+  background: transparent;
+}
+
+.omnitime-wk__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px 5px;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-md);
+  text-align: left;
+  cursor: pointer;
+  color: var(--ot-text);
+  font-size: 12px;
+}
+
+.omnitime-wk__head:hover {
+  background: var(--ot-bg-hover-tint);
+}
+
+.omnitime-wk__name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.omnitime-wk__total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ot-text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Reserved rows: every head has the same height with or without a meter or
+   an "Absent" chip. */
+.omnitime-wk__meter {
+  display: block;
+  align-self: stretch;
+  height: 3px;
+  margin-top: 3px;
+}
+
+.omnitime-wk__flags {
+  display: block;
+  min-height: 17px;
+}
+
+.omnitime-wk__day--under .omnitime-wk__total {
+  color: var(--ot-meter-under);
+}
+
+/* Today: an accent underline on the head (no tinted cards). */
+.omnitime-wk__day--today .omnitime-wk__head {
+  border-radius: var(--ot-radius-md) var(--ot-radius-md) 0 0;
+  box-shadow: inset 0 -2px 0 var(--ot-accent);
+}
+
+.omnitime-wk__day--weekend .omnitime-wk__name,
+.omnitime-wk__day--future .omnitime-wk__name,
+.omnitime-wk__day--absent .omnitime-wk__name {
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-wk__day--today .omnitime-wk__name {
+  color: var(--ot-accent-text);
+}
+
+.omnitime-wk__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.omnitime-wk__entry {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px 4px 9px;
+  background: var(--ot-entry-bg);
+  border: 1px solid var(--ot-entry-border);
+  border-radius: var(--ot-radius-sm);
+  box-shadow: var(--ot-shadow-entry);
+  overflow: hidden;
+  font-size: 11px;
+}
+
+/* Project stripe (same tokens as the timeline). */
+.omnitime-wk__entry::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--ot-border-strong);
+}
+
+.omnitime-wk__entry--p0::before { background: var(--ot-project-0); }
+.omnitime-wk__entry--p1::before { background: var(--ot-project-1); }
+.omnitime-wk__entry--p2::before { background: var(--ot-project-2); }
+.omnitime-wk__entry--p3::before { background: var(--ot-project-3); }
+.omnitime-wk__entry--p4::before { background: var(--ot-project-4); }
+.omnitime-wk__entry--p5::before { background: var(--ot-project-5); }
+.omnitime-wk__entry--p6::before { background: var(--ot-project-6); }
+.omnitime-wk__entry--p7::before { background: var(--ot-project-7); }
+
+/* Booked (read-only): muted hatched surface, like the timeline. */
+.omnitime-wk__entry--booked {
+  background-color: var(--ot-booked-bg);
+  background-image: repeating-linear-gradient(135deg, var(--ot-booked-hatch) 0 1px, transparent 1px 7px);
+  border-color: var(--ot-booked-border);
+  box-shadow: none;
+}
+
+/* Meta line: time range on the left, the project (muted, truncated) right-aligned. */
+.omnitime-wk__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+  color: var(--ot-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-wk__time {
+  flex: none;
+  white-space: nowrap;
+}
+
+.omnitime-wk__project {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--ot-text-muted);
+}
+
+/* Duration: bottom right of the card (lock glyph first when booked). */
+.omnitime-wk__dur {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 3px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ot-text-secondary);
+}
+
+.omnitime-wk__dur .ot-svg {
+  width: 10px;
+  height: 10px;
+  color: var(--ot-text-muted);
+}
+
+/* Title: two lines at most, the #id muted after the label. */
+.omnitime-wk__issue {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ot-text-strong);
+}
+
+/* Comment: speech glyph + one line with an ellipsis. */
+.omnitime-wk__comment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-wk__comment .ot-svg {
+  width: 10px;
+  height: 10px;
+}
+
+.omnitime-wk__commenttext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Break between two cards: a dotted rule with centred text. */
+.omnitime-wk__break {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 2px;
+  color: var(--ot-text-muted);
+  font-size: 10px;
+  line-height: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.omnitime-wk__break::before,
+.omnitime-wk__break::after {
+  content: "";
+  flex: 1 1 0;
+  border-top: 1px dotted var(--ot-border-strong);
+}
+
+/* Narrow: one row per day (head on the left, cards on the right). The dialog's
+   width decides (it is 96% of the window up to 1100px: 730px = a 760px window). */
+@container omnitime-modal (max-width: 730px) {
+  .omnitime-wk__grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .omnitime-wk__day,
+  .omnitime-wk__day--collapsed {
+    flex: none;
+    display: grid;
+    grid-template-columns: 8.5em minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* ------------------------------------------------------------
+   Book meetings (openBookDialog): a step dialog layered over My day, plus
+   the Suggestions chips (also under the form's target banner)
+   ------------------------------------------------------------ */
+
+.omnitime-bookall__count {
+  min-width: 18px;
+  box-sizing: border-box;
+  padding: 1px 6px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-cal-text);
+  color: var(--ot-bg);
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-bk {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--ot-backdrop);
+}
+
+/* container-type: the rows lay out by the panel's width, not the window's. */
+.omnitime-bk__panel {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  max-height: 100%;
+  box-sizing: border-box;
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-xl);
+  box-shadow: var(--ot-shadow-modal);
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.omnitime-bk__panel:focus,
+.omnitime-bk__panel:focus-visible {
+  outline: none;
+}
+
+.omnitime-bk__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.omnitime-bk__title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ot-text-strong);
+}
+
+.omnitime-bk__steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-bk__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.omnitime-bk__stepname {
+  padding: 2px 10px;
+  border-radius: var(--ot-radius-pill);
+}
+
+.omnitime-bk__step + .omnitime-bk__step::before {
+  content: "\2192";
+  content: "\2192" / "";
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-bk__step--current .omnitime-bk__stepname {
+  background: var(--ot-accent-subtle);
+  color: var(--ot-accent-strong);
+  font-weight: 600;
+}
+
+.omnitime-bk__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--ot-radius-md);
+  background: none;
+  color: var(--ot-text-muted);
+  cursor: pointer;
+}
+
+.omnitime-bk__x:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-bk__x:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.omnitime-bk__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.omnitime-bk__rows,
+.omnitime-bk__progress {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A meeting row: [x] time, length, title / Book on + Suggestions */
+.omnitime-bk__row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.omnitime-bk__row:last-child {
+  border-bottom: none;
+}
+
+.omnitime-bk__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.omnitime-bk__check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--ot-accent-solid);
+}
+
+.omnitime-bk__when {
+  display: flex;
+  align-items: baseline;
+  flex: 0 1 auto;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.omnitime-bk__time,
+.omnitime-bk__dur {
+  flex: none;
+  color: var(--ot-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-bk__dur {
+  color: var(--ot-text-muted);
+}
+
+.omnitime-bk__name-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ot-text-strong);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-bk__tag {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid var(--ot-border);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-muted);
+  color: var(--ot-text-muted);
+  font-size: 11px;
+}
+
+.omnitime-bk__tag--warn {
+  border-color: var(--ot-warn-border);
+  background: var(--ot-warn-bg);
+  color: var(--ot-warn-text);
+}
+
+.omnitime-bk__main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 8px 0 0 24px;
+}
+
+.omnitime-bk__row--off .omnitime-bk__main {
+  opacity: 0.6;
+}
+
+.omnitime-bk__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.omnitime-bk__field--sugg {
+  flex: 1 1 100%;
+}
+
+/* From 640 px (of the dialog, not the window) the Suggestions sit beside "Book on". */
+@container (min-width: 640px) {
+  .omnitime-bk__main {
+    flex-wrap: nowrap;
+  }
+
+  .omnitime-bk__field--on {
+    flex: 0 1 252px;
+  }
+
+  .omnitime-bk__field--sugg {
+    flex: 1 1 0;
+  }
+}
+
+.omnitime-bk__lbl {
+  color: var(--ot-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.omnitime-bk__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Issue chip: project colour stripe, "#58", title (cut with an ellipsis). */
+.omnitime-bk__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0 12px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  font-size: 12px;
+  line-height: 1;
+  text-align: left;
+}
+
+button.omnitime-bk__chip {
+  cursor: pointer;
+}
+
+button.omnitime-bk__chip:hover {
+  border-color: var(--ot-accent-border);
+  background: var(--ot-bg-hover-tint);
+}
+
+.omnitime-bk__chip .ot-svg {
+  width: 12px;
+  height: 12px;
+  margin-right: -2px;
+  color: var(--ot-text-muted);
+}
+
+/* A small rounded project bar, centred (not a clipped full-height stripe). */
+.omnitime-bk__stripe {
+  flex: none;
+  align-self: center;
+  width: 4px;
+  height: 14px;
+  margin-left: 8px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-border-strong);
+}
+
+.omnitime-bk__stripe--p0 { background: var(--ot-project-0); }
+.omnitime-bk__stripe--p1 { background: var(--ot-project-1); }
+.omnitime-bk__stripe--p2 { background: var(--ot-project-2); }
+.omnitime-bk__stripe--p3 { background: var(--ot-project-3); }
+.omnitime-bk__stripe--p4 { background: var(--ot-project-4); }
+.omnitime-bk__stripe--p5 { background: var(--ot-project-5); }
+.omnitime-bk__stripe--p6 { background: var(--ot-project-6); }
+.omnitime-bk__stripe--p7 { background: var(--ot-project-7); }
+
+.omnitime-bk__chiptext {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-bk__id {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The issue the meeting is booked on */
+.omnitime-bk__on {
+  padding-right: 4px;
+  border-color: var(--ot-accent-border);
+  background: var(--ot-accent-subtle);
+  color: var(--ot-accent-strong);
+}
+
+.omnitime-bk__clear {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--ot-radius-pill);
+  background: none;
+  color: var(--ot-accent-text);
+  cursor: pointer;
+}
+
+.omnitime-bk__clear:hover {
+  background: var(--ot-accent-border);
+}
+
+.omnitime-bk__clear .ot-svg {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  color: inherit;
+}
+
+/* No issue yet: a dashed prompt in the warning colors */
+.omnitime-bk__ph {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px dashed var(--ot-warn-border);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-warn-bg);
+  color: var(--ot-warn-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.omnitime-bk__ph:hover {
+  border-style: solid;
+}
+
+.omnitime-bk__find-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 12px 0 8px;
+  border: 1px dashed var(--ot-border-strong);
+  border-radius: var(--ot-radius-pill);
+  background: none;
+  color: var(--ot-accent-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.omnitime-bk__find-btn:hover {
+  background: var(--ot-accent-subtle);
+}
+
+.omnitime-bk__find-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.omnitime-bk__find-btn .ot-svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* While the suggestions load: same-size placeholders, no layout jump */
+.omnitime-bk__skel {
+  display: inline-block;
+  width: 128px;
+  max-width: 100%;
+  height: 28px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-muted);
+  animation: omnitime-bk-pulse 1.2s ease-in-out infinite;
+}
+
+.omnitime-bk__skel--on {
+  width: 208px;
+}
+
+@keyframes omnitime-bk-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* A swap: the two chips that changed place settle in (150 ms). */
+.omnitime-bk__chip--in {
+  animation: omnitime-bk-in 150ms ease-out;
+}
+
+@keyframes omnitime-bk-in {
+  from { opacity: 0.3; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnitime-bk__chip--in,
+  .omnitime-bk__skel,
+  .omnitime-bk__spinner { animation: none; }
+}
+
+/* Inline issue search in a row */
+.omnitime-bk__find {
+  margin: 8px 0 0 24px;
+}
+
+.omnitime-bk__finder {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.omnitime-bk__finder-icon {
+  position: absolute;
+  top: 8px;
+  left: 9px;
+  color: var(--ot-text-subtle);
+  line-height: 0;
+  pointer-events: none;
+}
+
+.omnitime-bk__finder-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 10px 7px 32px;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-input-bg);
+  color: var(--ot-text);
+  font-size: 13px;
+}
+
+.omnitime-bk__finder-input::placeholder {
+  color: var(--ot-text-subtle);
+}
+
+.omnitime-bk__finder-x {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--ot-radius-md);
+  background: none;
+  color: var(--ot-text-muted);
+  cursor: pointer;
+}
+
+.omnitime-bk__finder-x:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-bk__results {
+  max-height: 200px;
+  margin-top: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-bg);
+}
+
+/* Footer: selection summary + hint, Cancel / Book */
+.omnitime-bk__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--ot-border);
+  background: var(--ot-bg-subtle);
+}
+
+.omnitime-bk__info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.omnitime-bk__summary {
+  color: var(--ot-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-bk__hint {
+  font-size: 12px;
+  color: var(--ot-text-muted);
+}
+
+.omnitime-bk__hint:empty {
+  display: none;
+}
+
+.omnitime-bk__hint--warn {
+  padding: 2px 10px;
+  border: 1px solid var(--ot-warn-border);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-warn-bg);
+  color: var(--ot-warn-text);
+}
+
+.omnitime-bk__btns {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.omnitime-bk__cancel,
+.omnitime-bk__ok {
+  padding: 6px 16px;
+  border-radius: var(--ot-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-bk__cancel {
+  border: 1px solid var(--ot-border-strong);
+  background: var(--ot-bg);
+  color: var(--ot-text);
+}
+
+.omnitime-bk__cancel:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-bk__ok {
+  border: none;
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+}
+
+.omnitime-bk__ok:hover:not(:disabled) {
+  background: var(--ot-accent-solid-hover);
+}
+
+/* Disabled: muted tokens at full opacity (readable in both themes). */
+.omnitime-bk__ok:disabled {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text-muted);
+  cursor: default;
+}
+
+.omnitime-bk__cancel:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Steps 2 and 3: per-meeting progress */
+.omnitime-bk__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 16px 0 8px;
+  color: var(--ot-text-strong);
+  font-size: 14px;
+}
+
+.omnitime-bk__failed {
+  color: var(--ot-danger-text);
+  font-size: 13px;
+}
+
+.omnitime-bk__progress {
+  padding: 8px 0 16px;
+}
+
+.omnitime-bk__prow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ot-border-subtle);
+}
+
+.omnitime-bk__prow:last-child {
+  border-bottom: none;
+}
+
+.omnitime-bk__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.omnitime-bk__prow--ok .omnitime-bk__mark {
+  color: var(--ot-success);
+}
+
+.omnitime-bk__prow--fail .omnitime-bk__mark {
+  color: var(--ot-danger);
+}
+
+.omnitime-bk__prow--wait {
+  color: var(--ot-text-muted);
+}
+
+.omnitime-bk__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ot-border-strong);
+}
+
+.omnitime-bk__spinner {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid var(--ot-border-strong);
+  border-top-color: var(--ot-accent);
+  border-radius: 50%;
+  animation: omnitime-bk-spin 0.8s linear infinite;
+}
+
+@keyframes omnitime-bk-spin {
+  to { transform: rotate(360deg); }
+}
+
+.omnitime-bk__ptext {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.omnitime-bk__ptext .omnitime-bk__time {
+  margin-right: 4px;
+}
+
+.omnitime-bk__parrow {
+  color: var(--ot-text-muted);
+}
+
+.omnitime-bk__pfail {
+  flex: 1 1 100%;
+  margin-left: 32px;
+  font-size: 12px;
+}
+
+.omnitime-bk__perr {
+  margin-right: 8px;
+  color: var(--ot-danger-text);
+}
+
+.omnitime-bk__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ot-accent-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The Suggestions under the form's target banner */
+.omnitime-sugg {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------
+   Settings panel (the gear): the extension's options page in an iframe,
+   sliding over the content. The tabs and content behind it are `inert`.
+   ------------------------------------------------------------ */
+
+/* The notice and "This issue" dialogs are only as tall as their content:
+   give the panel room while it is open. */
+.omnitime-modal--settings:not(.omnitime-modal--large) {
+  height: min(90vh, 680px);
+}
+
+.omnitime-settings {
+  position: absolute;
+  top: 0; /* set to the content's offset (below the header) when it opens */
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  background: var(--ot-bg);
+  border-top: 1px solid var(--ot-border-subtle);
+  transform: translateX(100%);
+  transition: transform 150ms ease-out;
+}
+
+.omnitime-settings--open {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnitime-settings {
+    transition: none;
+  }
+}
+
+/* The tabs and the timer behind the open panel are inert: show it. */
+.omnitime-headerleft[inert],
+.omnitime-header-timer[inert] {
+  opacity: 0.5;
+}
+
+.omnitime-settings__head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.omnitime-settings__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  background: none;
+  border: none;
+  border-radius: var(--ot-radius-md);
+  color: var(--ot-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.omnitime-settings__back:hover {
+  background: var(--ot-bg-muted);
+  color: var(--ot-text);
+}
+
+.omnitime-settings__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ot-text-strong);
+}
+
+/* The options page scrolls itself: one scrollbar, inside the frame. */
+.omnitime-settings__frame {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--ot-bg);
+}
+
+/* Focus guard behind the frame (see createSettingsPanel): invisible. */
+.omnitime-settings__guard {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  outline: none;
+}
+
+/* "Open settings" in the not-configured notice */
+.omnitime-notice__actions {
+  margin-top: 24px;
+}
+
+/* ------------------------------------------------------------
+   Large modal (My day): near-fullscreen. Must stay last: it overrides the
+   equally specific column rules above by source order.
+   ------------------------------------------------------------ */
+
+.omnitime-modal--large {
+  width: 96%;
+  max-width: 1100px;
+  height: 92vh;
+  max-height: 92vh;
+}
+
+.omnitime-modal--large .omnitime-modal-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.omnitime-modal--large .omnitime-modal-close {
+  align-self: center;
+}
+
+.omnitime-modal--large .omnitime-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ot-text-strong);
+  letter-spacing: 0.3px;
+}
+
+.omnitime-modal--large .omnitime-modal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+}
+
+.omnitime-modal--large .omnitime-myday {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px 24px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.omnitime-modal--large .omnitime-week {
+  margin-bottom: 14px;
+}
+
+.omnitime-modal--large .omnitime-myday__cols {
+  flex: 1;
+  min-height: 0;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.omnitime-modal--large .omnitime-myday__timeline {
+  flex: 1 1 100%;
+  max-height: none;
+}
+
+.omnitime-modal--large .omnitime-myday__form {
+  flex: 0 0 360px;
+  overflow-y: auto;
+}
+
+.omnitime-modal--large .omnitime-myday__total {
+  padding: 12px 0 4px;
+}
+
+.omnitime-modal--large .omnitime-wk {
+  flex: 1;
+  height: 100%;
+  padding: 16px 24px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Toasts (Undo, errors) sit above the My day footer, never over the total or
+   the target progress. */
+.omnitime-modal--large:has(.omnitime-myday) .omnitime-toast-region {
+  bottom: 68px;
+}
+
+/* Narrow dialogs (<= 730px wide, see the Week rows above). After the rules above:
+   same specificity, so source order decides. */
+@container omnitime-modal (max-width: 730px) {
+  /* Footer: wraps instead of squeezing; buttons and the progress text never
+     break; the sync time hides (icon + refresh stay, the tooltip has it). */
+  .omnitime-myday__total {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .omnitime-add-btn,
+  .omnitime-bookall,
+  .omnitime-progress__label,
+  .omnitime-myday__total-group {
+    white-space: nowrap;
+  }
+
+  .omnitime-cal-status--ok {
+    font-size: 0;
+  }
+
+  .omnitime-modal--large:has(.omnitime-myday) .omnitime-toast-region {
+    bottom: 104px;
+  }
+
+  /* Form open: the form goes below the timeline instead of squeezing it. */
+  .omnitime-modal--large .omnitime-myday__cols--form-open {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .omnitime-modal--large .omnitime-myday__cols--form-open .omnitime-myday__timeline {
+    flex: 0 0 38%;
+    min-height: 160px;
+  }
+
+  .omnitime-modal--large .omnitime-myday__cols--form-open .omnitime-myday__form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------
+   Running timer (timer.js): header pill, start button, confirm panel
+   ------------------------------------------------------------ */
+
+/* Slot in the modal header, between the tabs and the close button. */
+.omnitime-header-timer {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-self: center;
+  margin: 0 8px 0 auto;
+}
+
+.omnitime-header-timer:empty {
+  display: none;
+}
+
+.omnitime-timerpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 340px;
+  box-sizing: border-box;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--ot-rec-border);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-rec-bg);
+  color: var(--ot-rec-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.omnitime-timerpill__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ot-rec);
+  animation: omnitime-rec-pulse 2s ease-in-out infinite;
+}
+
+@keyframes omnitime-rec-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnitime-timerpill__dot { animation: none; }
+}
+
+.omnitime-timerpill__time {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.omnitime-timerpill__issue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnitime-timerpill__stop {
+  flex: none;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-danger-solid);
+  color: var(--ot-on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-timerpill__stop:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* "Start timer" next to "Track time on this issue". */
+.omnitime-timer-start {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  margin: 0 6px 0 auto;
+  padding: 4px 11px;
+  border: 1px solid var(--ot-accent-border);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-accent-subtle);
+  color: var(--ot-accent-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-timer-start:hover {
+  border-color: var(--ot-accent);
+}
+
+.omnitime-timer-start--running {
+  border-color: var(--ot-rec-border);
+  background: var(--ot-rec-bg);
+  color: var(--ot-rec-text);
+}
+
+.omnitime-timer-start--running:hover {
+  border-color: var(--ot-rec);
+}
+
+.omnitime-issuehead .omnitime-timer-start + .omnitime-add-btn {
+  margin-left: 0;
+}
+
+/* The confirm / error panel of a stop or start: a row under the header, a
+   row in the issue tab, a block in the sidebar widget. */
+.omnitime-timerpanel-host:empty {
+  display: none;
+}
+
+.omnitime-timerpanel-host--bar {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  padding: 4px 14px 10px;
+}
+
+.omnitime-timerpanel-host--bar:empty {
+  display: none;
+}
+
+.omnitime-timerpanel-host--bar .omnitime-timerpanel {
+  width: min(440px, 100%);
+}
+
+.omnitime-timerpanel-host--inline {
+  padding: 10px 20px 0;
+}
+
+.omnitime-timerpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-lg);
+  background: var(--ot-bg);
+  box-shadow: var(--ot-shadow-pop);
+  color: var(--ot-text);
+  font-family: var(--ot-font);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.omnitime-timerpanel__msg {
+  margin: 0;
+}
+
+.omnitime-timerpanel__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.omnitime-timerpanel__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.omnitime-timerpanel__input {
+  padding: 4px 6px;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-input-bg);
+  color: var(--ot-text);
+  font: inherit;
+}
+
+.omnitime-timerpanel__hint {
+  color: var(--ot-text-muted);
+  font-size: 12px;
+}
+
+.omnitime-timerpanel__hint:empty,
+.omnitime-timerpanel__error:empty {
+  display: none;
+}
+
+.omnitime-timerpanel__error {
+  color: var(--ot-danger);
+  font-size: 12px;
+}
+
+.omnitime-timerpanel__btn {
+  padding: 4px 11px;
+  border: 1px solid var(--ot-border-strong);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-bg);
+  color: var(--ot-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.omnitime-timerpanel__btn:hover {
+  background: var(--ot-bg-muted);
+}
+
+.omnitime-timerpanel__btn--primary {
+  border-color: var(--ot-accent-solid);
+  background: var(--ot-accent-solid);
+  color: var(--ot-on-accent);
+}
+
+.omnitime-timerpanel__btn--primary:hover {
+  background: var(--ot-accent-solid-hover);
+}
+
+.omnitime-timerpanel__btn--danger {
+  border-color: var(--ot-danger-solid);
+  background: var(--ot-danger-solid);
+  color: var(--ot-on-accent);
+}
+
+.omnitime-timerpanel__btn--danger:hover {
+  opacity: 0.9;
+  background: var(--ot-danger-solid);
+}
+
+.omnitime-timerpanel :focus-visible,
+.omnitime-timer-start:focus-visible,
+.omnitime-timerpill__stop:focus-visible {
+  outline: 2px solid var(--ot-focus);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------
+   Movable / resizable dialog (openShell: attachMoveResize)
+   ------------------------------------------------------------ */
+
+/* The narrow-layout rules above react to the dialog's width, not the window's. */
+.omnitime-modal {
+  container: omnitime-modal / inline-size;
+}
+
+.omnitime-modal-header {
+  cursor: grab;
+  outline: none;
+}
+
+.omnitime-modal-header button,
+.omnitime-modal-header [role="tab"] {
+  cursor: pointer;
+}
+
+.omnitime-modal-overlay--moving,
+.omnitime-modal-overlay--moving .omnitime-modal-header,
+.omnitime-modal-overlay--moving .omnitime-modal-header * {
+  cursor: grabbing;
+}
+
+.omnitime-modal-overlay--moving,
+.omnitime-modal-overlay--resizing {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Eight 8px hit zones on the dialog's edges and corners (large dialog only). */
+.omnitime-resize {
+  position: absolute;
+  z-index: 30;
+  touch-action: none;
+}
+
+.omnitime-modal:not(.omnitime-modal--large) .omnitime-resize {
+  display: none;
+}
+
+.omnitime-resize--n,
+.omnitime-resize--s {
+  left: 8px;
+  right: 8px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.omnitime-resize--e,
+.omnitime-resize--w {
+  top: 8px;
+  bottom: 8px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.omnitime-resize--n { top: 0; }
+.omnitime-resize--s { bottom: 0; }
+.omnitime-resize--e { right: 0; }
+.omnitime-resize--w { left: 0; }
+
+.omnitime-resize--ne,
+.omnitime-resize--se,
+.omnitime-resize--sw,
+.omnitime-resize--nw {
+  width: 8px;
+  height: 8px;
+}
+
+.omnitime-resize--ne { top: 0; right: 0; cursor: nesw-resize; }
+.omnitime-resize--sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.omnitime-resize--nw { top: 0; left: 0; cursor: nwse-resize; }
+.omnitime-resize--se { bottom: 0; right: 0; cursor: nwse-resize; }

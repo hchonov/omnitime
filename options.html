@@ -1,93 +1,265 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      width: 400px;
-    }
-
-    .section {
-      margin-bottom: 20px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 10px;
-    }
-
-    input {
-      display: block;
-      width: 100%;
-      margin: 5px 0;
-    }
-
-    .instance {
-      background: #f4f4f4;
-      padding: 10px;
-      margin-top: 5px;
-      border-radius: 4px;
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniTime settings</title>
+  <link rel="stylesheet" href="options.css">
 </head>
 
 <body>
-  <h3>API Settings</h3>
-  <input type="text" id="apiUrl" placeholder="https://your.api.com/api/v1/tracked-time">
-  <input type="password" id="apiKey" placeholder="API Key">
+<div class="shell">
+  <!-- Sticky bar: title (tab only), section picker (narrow only), "Saved", Open in a tab (embedded only). -->
+  <header class="topbar">
+    <h1 class="page-title">OmniTime settings</h1>
+    <select id="sectionPicker" class="picker" aria-label="Go to section">
+      <option value="secConnection">Connection</option>
+      <option value="secSites">Sites</option>
+      <option value="secCalendar">Calendar</option>
+      <option value="secMyDay">My day</option>
+      <option value="secNotifications">Notifications</option>
+      <option value="secMeetings">Remembered meetings</option>
+      <option value="secAdvanced">Advanced</option>
+      <option value="secAbout">About</option>
+    </select>
+    <span id="saveStatus" class="status" role="status" aria-live="polite"></span>
+    <span class="autosave-hint">Changes are saved automatically.</span>
+    <button id="openInTab" type="button" class="link" hidden>Open in a tab</button>
+  </header>
 
-  <details style="margin-top: 6px;">
-    <summary style="cursor: pointer; font-size: 13px; color: #555;">Advanced &mdash; API endpoints (optional)</summary>
-    <div style="font-size: 12px; color: #777; margin: 8px 0;">
-      Leave blank to derive these from the tracked-time URL above. Override only if your server uses different paths.
-      The placeholder shows the value that will be used.
-    </div>
-    <label style="font-size: 12px; color: #555;">My day (own daily/weekly trackings)
-      <input type="text" id="epMyDay" placeholder="(derived)"></label>
-    <label style="font-size: 12px; color: #555;">Frequently tracked issues
-      <input type="text" id="epFrequent" placeholder="(derived)"></label>
-    <label style="font-size: 12px; color: #555;">Issue search
-      <input type="text" id="epSearch" placeholder="(derived)"></label>
-    <div style="font-size: 12px; color: #999; margin-top: 4px;">
-      These power the new <strong>My day</strong> tab and time logging. If your server only has the
-      classic <code>tracked-time</code> endpoint, the <strong>This issue</strong> report still works and
-      <strong>My day</strong> simply shows a "not available yet" notice.
-    </div>
-  </details>
+  <div class="body">
+    <nav class="sections" id="sectionNav" aria-label="Settings sections">
+      <ul>
+        <li><a href="#secConnection" data-section="secConnection">Connection</a></li>
+        <li><a href="#secSites" data-section="secSites">Sites</a></li>
+        <li><a href="#secCalendar" data-section="secCalendar">Calendar</a></li>
+        <li><a href="#secMyDay" data-section="secMyDay">My day</a></li>
+        <li><a href="#secNotifications" data-section="secNotifications">Notifications</a></li>
+        <li><a href="#secMeetings" data-section="secMeetings">Remembered meetings</a></li>
+        <li><a href="#secAdvanced" data-section="secAdvanced">Advanced</a></li>
+        <li><a href="#secAbout" data-section="secAbout">About</a></li>
+      </ul>
+    </nav>
 
-  <h3>Calendar Integration</h3>
-  <div style="font-size: 13px; color: #555; margin-bottom: 6px;">
-    Paste your Google Calendar <strong>Secret address in iCal format</strong> to see calendar events as placeholders in the "My day" timeline.
-    <br><small style="color: #888;">Find it in Google Calendar → Settings → your calendar → "Integrate calendar" → "Secret address in iCal format".</small>
+    <main class="content" id="content" tabindex="-1">
+
+      <!-- Setup checklist: shown while sign-in, API URL or a site is missing. -->
+      <section id="getStarted" class="setup" aria-labelledby="getStartedTitle" hidden>
+        <div id="setupSteps">
+          <h2 id="getStartedTitle">Get started</h2>
+          <p>Three steps and OmniTime works on your GitLab tickets and from the toolbar icon.</p>
+          <ol class="steps">
+            <li id="stepSignIn" class="step">
+              <span class="step__mark" aria-hidden="true">1</span>
+              <div class="step__body">
+                <div class="step__title">Sign in with Google <span class="step__state ot-visually-hidden"></span></div>
+                <div class="step__action">
+                  <button id="setupSignIn" type="button">Go to sign-in</button>
+                </div>
+              </div>
+            </li>
+            <li id="stepApi" class="step">
+              <span class="step__mark" aria-hidden="true">2</span>
+              <div class="step__body">
+                <div class="step__title">Set the API URL <span class="step__state ot-visually-hidden"></span></div>
+                <div class="step__action">
+                  <button id="setupApi" type="button">Enter the API URL</button>
+                </div>
+              </div>
+            </li>
+            <li id="stepSite" class="step">
+              <span class="step__mark" aria-hidden="true">3</span>
+              <div class="step__body">
+                <div class="step__title">Add your GitLab site <span class="step__state ot-visually-hidden"></span></div>
+                <div class="step__action">
+                  <button id="setupSite" type="button">Add a site</button>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <div id="setupDone" class="setup__done" role="status" hidden>
+          <strong>You're all set.</strong>
+          Open a GitLab ticket and click "Time tracking" in its sidebar, or click the OmniTime icon in the toolbar.
+        </div>
+      </section>
+
+      <section id="secConnection">
+        <h2 tabindex="-1">Connection</h2>
+        <p>Sign in with Google to use the 1x TIMES API (this is the only supported sign-in).</p>
+        <label for="apiUrl">API URL</label>
+        <input type="text" id="apiUrl" placeholder="https://your.api.com/api/v1/tracked-time" autocomplete="off" spellcheck="false">
+
+        <div class="google-box">
+          <h3>Google account</h3>
+          <div id="googleLoggedOutWrap">
+            <button id="googleLoginBtn" type="button" class="google">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1H12v2.98h5.36c-.23 1.25-.94 2.31-2 3.02v2.51h3.24c1.89-1.74 2.98-4.3 2.98-7.41 0-.74-.07-1.45-.23-2.1z"/><path fill="currentColor" d="M12 21c2.7 0 4.96-.9 6.62-2.43l-3.24-2.51c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.76-5.6-4.12H3.07v2.59C4.74 18.69 8.09 21 12 21z"/><path fill="currentColor" d="M6.4 12.9c-.2-.6-.31-1.24-.31-1.9s.11-1.3.31-1.9V6.51H3.07C2.39 7.86 2 9.38 2 11s.39 3.14 1.07 4.49l3.33-2.59z"/><path fill="currentColor" d="M12 5.38c1.47 0 2.79.51 3.82 1.5l2.87-2.87C16.95 2.37 14.69 1.5 12 1.5 8.09 1.5 4.74 3.81 3.07 7.01l3.33 2.59c.79-2.36 3-4.12 5.6-4.12z"/></svg>
+              Sign in with Google
+            </button>
+            <span id="googleAuthStatus" role="status">Not signed in</span>
+          </div>
+          <div id="googleLoggedInWrap">
+            <div class="account">
+              <div class="who">
+                <img id="googleUserAvatar" src="" alt="">
+                <div id="googleAvatarFallback" aria-hidden="true">G</div>
+                <div>
+                  <div id="googleUserName">Google Account</div>
+                  <div id="googleUserEmail"></div>
+                </div>
+                <span class="badge">Signed in</span>
+              </div>
+              <div class="account__actions">
+                <button id="googleLogoutBtn" type="button" class="danger">Sign out</button>
+                <span id="logoutConfirm" class="confirm" role="group" aria-label="Confirm sign out" hidden>
+                  <span>Sign out of Google?</span>
+                  <button id="logoutYes" type="button" class="danger">Yes, sign out</button>
+                  <button id="logoutNo" type="button">Cancel</button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row actions">
+          <button id="testConnection" type="button">Test connection</button>
+          <span id="testResult" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section id="secSites">
+        <h2 tabindex="-1">Sites</h2>
+        <div class="notice">
+          <strong>How to use</strong>
+          <ol>
+            <li>Add your instance URL below (e.g. <code>gitlab.com</code>). It is saved as soon as you leave the field.</li>
+            <li>Allow access to the site if your browser asks.</li>
+            <li>Go to your ticket (issue or merge request).</li>
+            <li>In GitLab, click the <strong>"Time tracking"</strong> header in the sidebar to view the report.</li>
+          </ol>
+        </div>
+        <div id="instances"></div>
+        <div class="row actions"><button id="addInstance" type="button">+ Add instance</button></div>
+      </section>
+
+      <section id="secCalendar">
+        <h2 tabindex="-1">Calendar</h2>
+        <p>Show calendar events as placeholders in the "My day" timeline. Use your Google account, or paste a secret iCal address.</p>
+        <label class="check" for="useGoogleCalendar">
+          <input type="checkbox" id="useGoogleCalendar">
+          Use my Google Calendar events
+        </label>
+        <div class="hint small">If checked, this overrides the iCal URL below and fetches events directly using your Google sign-in.</div>
+        <label for="icalUrl">iCal URL</label>
+        <input type="text" id="icalUrl" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" autocomplete="off" spellcheck="false">
+        <div class="hint small">Google Calendar &rarr; Settings &rarr; your calendar &rarr; "Integrate calendar" &rarr; "Secret address in iCal format".</div>
+      </section>
+
+      <section id="secMyDay">
+        <h2 tabindex="-1">My day</h2>
+        <p>Default time block shown in the "My day" timeline (24h, e.g. 8 to 17).</p>
+        <div class="row">
+          <div>
+            <label for="dayStart">Start hour</label>
+            <input type="number" id="dayStart" placeholder="8" min="0" max="23">
+          </div>
+          <div>
+            <label for="dayEnd">End hour</label>
+            <input type="number" id="dayEnd" placeholder="17" min="1" max="24">
+          </div>
+          <div>
+            <label for="dailyTarget">Daily target (h:mm)</label>
+            <input type="text" id="dailyTarget" placeholder="8:00" inputmode="numeric" aria-describedby="dailyTargetError">
+          </div>
+        </div>
+        <div class="hint small">Use 0:00 to disable the daily target.</div>
+        <div id="dailyTargetError" class="field-error" role="alert"></div>
+        <label class="check" for="showSidebarWidget">
+          <input type="checkbox" id="showSidebarWidget">
+          Show quick-track buttons in the GitLab sidebar
+        </label>
+        <label class="check" for="sidebarStartExpanded">
+          <input type="checkbox" id="sidebarStartExpanded">
+          Open the GitLab time tracking details automatically
+        </label>
+        <div class="hint small">Off is safer when you share your screen.</div>
+      </section>
+
+      <section id="secNotifications">
+        <h2 tabindex="-1">Notifications</h2>
+        <label class="check" for="presentationMode">
+          <input type="checkbox" id="presentationMode">
+          Presentation mode (hide tracking)
+        </label>
+        <div class="hint small">Hides the toolbar total, the end-of-day reminder and the GitLab sidebar toggle while you share your screen. Applies to this browser only.</div>
+        <div id="presentationNote" class="notice presentation-note" role="status" hidden>Presentation mode is on.</div>
+        <label class="check" for="showBadge">
+          <input type="checkbox" id="showBadge">
+          Show today's total on the toolbar icon
+        </label>
+        <label class="check" for="reminderEnabled">
+          <input type="checkbox" id="reminderEnabled">
+          Remind me at the end of the day (weekdays) if time is untracked or meetings are unbooked
+        </label>
+        <label for="reminderTime">Reminder time</label>
+        <input type="time" id="reminderTime" value="17:30" aria-describedby="reminderTimeError">
+        <div class="hint small">The reminder is shown as a notification by your browser itself, so it follows your browser and system notification settings.</div>
+        <div id="reminderTimeError" class="field-error" role="alert"></div>
+      </section>
+
+      <section id="secMeetings">
+        <h2 tabindex="-1">Remembered meetings</h2>
+        <p>Recurring meetings you have booked to an issue. OmniTime pre-selects that issue next time the meeting appears.</p>
+        <div id="meetingEmpty">No remembered meetings.</div>
+        <ul id="meetingList"></ul>
+        <div class="row actions"><button id="forgetAll" type="button" class="danger">Forget all</button></div>
+      </section>
+
+      <section id="secAdvanced">
+        <h2 tabindex="-1">Advanced</h2>
+        <details id="advLegacy">
+          <summary>API key, endpoints and debugging</summary>
+          <div class="sub">
+            <label for="apiKey">API key (legacy)</label>
+            <input type="password" id="apiKey" autocomplete="off">
+            <div class="hint small">Legacy: 1x TIMES now only accepts "Sign in with Google". Only needed for old servers.</div>
+          </div>
+          <h3 class="sub">API endpoints (optional)</h3>
+          <div class="hint">Leave blank to derive these from the tracked-time URL. Override only if your server uses different paths. The placeholder shows the value that will be used.</div>
+          <label for="epMyDay">My day (own daily/weekly trackings)</label>
+          <input type="text" id="epMyDay" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epFrequent">Frequently tracked issues</label>
+          <input type="text" id="epFrequent" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epSearch">Issue search</label>
+          <input type="text" id="epSearch" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epWeek">My week (entries and absences)</label>
+          <input type="text" id="epWeek" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epBookmarks">Starred issues (list)</label>
+          <input type="text" id="epBookmarks" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epBookmark">Star / unstar an issue</label>
+          <input type="text" id="epBookmark" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epBookingSuggestions">Booking suggestions (calendar meetings)</label>
+          <input type="text" id="epBookingSuggestions" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <label for="epPeople">People search (project managers: view a colleague's week)</label>
+          <input type="text" id="epPeople" placeholder="(derived)" autocomplete="off" spellcheck="false">
+          <div class="hint small">These power the <strong>My day</strong> tab and time logging. If your server only has the classic <code>tracked-time</code> endpoint, the <strong>This issue</strong> report still works.</div>
+          <label class="check" for="debugMode">
+            <input type="checkbox" id="debugMode">
+            Enable debug mode (show console logs)
+          </label>
+        </details>
+      </section>
+
+      <section id="secAbout">
+        <h2 tabindex="-1">About</h2>
+        <p>OmniTime version <span id="aboutVersion"></span></p>
+        <p class="footer"><a id="privacyLink" href="privacy_policy.md" target="_blank" rel="noopener">Privacy Policy</a></p>
+      </section>
+    </main>
   </div>
-  <input type="text" id="icalUrl" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
-
-  <h3>Platform Instances</h3>
-  <div class="section"
-    style="font-size: 13px; color: #555; background: #eef; padding: 10px; border-radius: 4px; border: 1px solid #dde;">
-    <strong>How to Use:</strong>
-    <ol style="margin: 5px 0 5px 20px; padding: 0;">
-      <li>Add your Instance URL below (e.g., <code>gitlab.com</code>).</li>
-      <li>Click <strong>Save All Settings</strong> and <strong>Grant Permissions</strong> when prompted.</li>
-      <li>Go to your ticket (Issue/MR).</li>
-      <li>For Gitlab click the <strong>"Time tracking"</strong> header in the sidebar to view the report.</li>
-    </ol>
-  </div>
-  <div id="instances"></div>
-  <button id="addInstance">+ Add Instance</button>
-
-  <div class="form-group" style="margin-top: 20px; display: flex; align-items: center;">
-    <input type="checkbox" id="debugMode" style="width: auto; margin-right: 10px;">
-    <label for="debugMode" style="margin-bottom: 0;">Enable Debug Mode (Show Console Logs)</label>
-  </div>
-
-  <hr>
-  <button id="save" style="background: #107c10; color: white; padding: 10px; border: none; cursor:pointer;">Save All
-    Settings</button>
-
-  <p style="margin-top: 20px; font-size: 12px; text-align: center;">
-    <a href="privacy_policy.md" target="_blank" style="color: #666; text-decoration: none;">Privacy Policy</a>
-  </p>
-
+</div>
   <script src="options.js"></script>
 </body>
 

@@ -6,13 +6,17 @@
   "author": "Hristo Chonov",
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "alarms",
+    "unlimitedStorage",
+    "identity",
+    "notifications",
+    "contextMenus"
   ],
   "host_permissions": [
     "*://*/*"
   ],
   "action": {
-    "default_popup": "options.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
@@ -31,5 +35,25 @@
     "page": "options.html",
     "open_in_tab": true
   },
-  "minimum_chrome_version": "88"
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "options.html",
+        "options.css",
+        "options.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "use_dynamic_url": true
+    }
+  ],
+  "minimum_chrome_version": "102",
+  "oauth2": {
+    "client_id": "865706468431-nj649djh85hb1fve603321ks6n05art0.apps.googleusercontent.com",
+    "scopes": [
+      "email",
+      "https://www.googleapis.com/auth/calendar.readonly"
+    ]
+  }
 }

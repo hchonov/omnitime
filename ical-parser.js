@@ -112,8 +112,17 @@
       if (!current) continue;
       const parsed = parseLine(trimmed);
       switch (parsed.name) {
+        case 'UID':
+          current.uid = parsed.value;
+          break;
         case 'SUMMARY':
           current.summary = parsed.value.replace(/\\n/g, ' ').replace(/\\,/g, ',').replace(/\\\\/g, '\\');
+          break;
+        case 'DESCRIPTION':
+          current.description = parsed.value.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\\\/g, '\\');
+          break;
+        case 'LOCATION':
+          current.location = parsed.value.replace(/\\n/g, ' ').replace(/\\,/g, ',').replace(/\\\\/g, '\\');
           break;
         case 'DTSTART':
           current.dtstart = parsed.value;
@@ -141,6 +150,15 @@
         case 'STATUS':
           current.status = parsed.value.toUpperCase();
           break;
+        case 'TRANSP':
+          current.transp = parsed.value.toUpperCase();
+          break;
+        case 'ATTENDEE':
+          if ((parsed.params.PARTSTAT || '').toUpperCase() === 'DECLINED') {
+            if (!current.declined) current.declined = [];
+            current.declined.push(parsed.value.replace(/^mailto:/i, '').trim().toLowerCase());
+          }
+          break;
         case 'RECURRENCE-ID':
           current.recurrenceId = parsed.value;
           current.recurrenceIdTzid = parsed.params.TZID || null;
@@ -148,6 +166,23 @@
       }
     }
     return events;
+  }
+
+  // Events that should not become placeholders: cancelled, free (transparent)
+  // and, when the signed-in email is known, declined by that attendee.
+  function isSkippedIcalEvent(ev, selfEmail) {
+    if (ev.status === 'CANCELLED' || ev.transp === 'TRANSPARENT') return true;
+    const me = String(selfEmail || '').trim().toLowerCase();
+    return !!(me && ev.declined && ev.declined.includes(me));
+  }
+
+  // Same for a Google Calendar API item (all-day items have start.date only).
+  // Out-of-office, focus-time, working-location and Gmail items are not meetings.
+  function isSkippedGoogleEvent(ev) {
+    if (!ev || !ev.start || !ev.start.dateTime || !ev.end || !ev.end.dateTime) return true;
+    if (ev.eventType && ev.eventType !== 'default') return true;
+    if (ev.status === 'cancelled' || ev.transparency === 'transparent') return true;
+    return (ev.attendees || []).some((a) => a && a.self === true && a.responseStatus === 'declined');
   }
 
   // ---- RRULE parser ----
@@ -284,10 +319,12 @@
    * Parse an .ics text and return calendar events for a given week.
    * @param {string} icsText  Raw .ics file contents.
    * @param {string} weekStartStr  ISO date of Monday (e.g. "2026-07-13").
+   * @param {{selfEmail?: string}} [opts]  selfEmail: signed-in Google email, used to drop declined events.
    * @returns {Array<{title: string, date: string, startMinutes: number, endMinutes: number, durationMinutes: number}>}
    *   startMinutes/endMinutes are minutes since local midnight; date is the local ISO date.
    */
-  function parseICalForWeek(icsText, weekStartStr) {
+  function parseICalForWeek(icsText, weekStartStr, opts) {
+    const selfEmail = opts && opts.selfEmail;
     const rawEvents = extractEvents(icsText);
     const weekStart = new Date(weekStartStr + 'T00:00:00');
     const weekEnd = new Date(weekStart);
@@ -306,8 +343,10 @@
 
     rawEvents.forEach((ev) => {
       if (!ev.dtstart) return;
-      // Skip CANCELLED events.
-      if (ev.status === 'CANCELLED') return;
+      // RECURRENCE-ID overrides are added by the second pass below.
+      if (ev.recurrenceId) return;
+      // Skip cancelled, free (TRANSP:TRANSPARENT) and declined events.
+      if (isSkippedIcalEvent(ev, selfEmail)) return;
 
       const isDateOnly = ev.dtstartValueType === 'DATE' || ev.dtstart.length === 8;
       if (isDateOnly) return; // Filter out all-day events.
@@ -338,6 +377,9 @@
         if (endMin > 24 * 60) endMin = 24 * 60;
         results.push({
           title,
+          uid: ev.uid || '',
+          description: ev.description || '',
+          location: ev.location || '',
           date: localDate,
           startMinutes: startMin,
           endMinutes: endMin,
@@ -363,7 +405,7 @@
     // Also process override events (RECURRENCE-ID) as standalone occurrences.
     rawEvents.forEach((ev) => {
       if (!ev.recurrenceId || !ev.dtstart) return;
-      if (ev.status === 'CANCELLED') return;
+      if (isSkippedIcalEvent(ev, selfEmail)) return;
       const isDateOnly = ev.dtstartValueType === 'DATE' || ev.dtstart.length === 8;
       if (isDateOnly) return;
 
@@ -386,6 +428,9 @@
       if (endMin > 24 * 60) endMin = 24 * 60;
       results.push({
         title: ev.summary || '(No title)',
+        uid: ev.uid || '',
+        description: ev.description || '',
+        location: ev.location || '',
         date: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`,
         startMinutes: startMin,
         endMinutes: endMin,
@@ -431,9 +476,56 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  // Expose on window for use by core.js and content.js.
-  window.OmniTimeCal = {
+  /**
+   * Parse Google Calendar API JSON response.
+   * @param {Object} json  JSON object from Google API.
+   * @param {string} weekStart ISO date "YYYY-MM-DD" for Monday.
+   * @returns {Array} List of simple event objects for the week.
+   */
+  function parseGoogleCalJsonForWeek(json, weekStart) {
+    if (!json || !json.items) return [];
+
+    const weekStartDate = new Date(weekStart + 'T00:00:00');
+    const weekEndDate = new Date(weekStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const results = [];
+
+    json.items.forEach(ev => {
+      // Ignore all-day, cancelled, free and declined events.
+      if (isSkippedGoogleEvent(ev)) return;
+
+      const dt = new Date(ev.start.dateTime);
+      if (dt < weekStartDate || dt >= weekEndDate) return;
+
+      const endDt = new Date(ev.end.dateTime);
+      let durationMin = Math.round((endDt.getTime() - dt.getTime()) / 60000);
+      if (durationMin <= 0) durationMin = 30;
+
+      const startMin = dt.getHours() * 60 + dt.getMinutes();
+      let endMin = startMin + durationMin;
+      if (endMin > 24 * 60) endMin = 24 * 60;
+      
+      results.push({
+        title: ev.summary || '(No title)',
+        // iCalUID matches the UID in the iCal feed, so remembered issues
+        // survive switching between the two calendar sources.
+        uid: ev.iCalUID || ev.recurringEventId || ev.id || '',
+        description: ev.description || '',
+        location: ev.location || '',
+        date: `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`,
+        startMinutes: startMin,
+        endMinutes: endMin,
+        durationMinutes: durationMin,
+      });
+    });
+
+    return results;
+  }
+
+  // Expose on window for use by core.js and content.js (the background
+  // script has no window and loads this file for the reminder).
+  (typeof window !== 'undefined' ? window : globalThis).OmniTimeCal = {
     parseICalForWeek,
+    parseGoogleCalJsonForWeek,
     filterEventsForDate,
     cleanTitle,
     weekMonday,
