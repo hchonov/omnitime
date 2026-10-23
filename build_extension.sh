@@ -4,8 +4,23 @@
 DIST_DIR="dist"
 BUILD_STAGE="build_stage"
 
-# Get Version from argument (if provided)
-VERSION=$1
+# Parse Arguments
+DEV_MODE=0
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dev)
+      DEV_MODE=1
+      shift
+      ;;
+    *)
+      VERSION=$1
+      shift
+      ;;
+  esac
+done
+
 if [ -n "$VERSION" ]; then
   CHROME_FILE="omnitime_${VERSION}.zip"
   FIREFOX_FILE="omnitime_${VERSION}.xpi"
@@ -34,7 +49,7 @@ echo "Setting up build stage..."
 # Let's use cp -r and then remove excluded items
 # Use rsync to copy files, excluding build artifacts and version control
 echo "Using rsync..."
-rsync -av --exclude="$DIST_DIR" --exclude="$BUILD_STAGE" --exclude=".git" --exclude=".github" --exclude=".gitignore" --exclude="dev" --exclude="package.json" --exclude="node_modules" --exclude=".env" --exclude=".env.example" --exclude=".idea" --exclude=".vscode" --exclude="*.DS_Store" . "$BUILD_STAGE/"
+rsync -av --exclude="$DIST_DIR" --exclude="$BUILD_STAGE" --exclude=".git" --exclude=".github" --exclude=".gitignore" --exclude="dev" --exclude="package.json" --exclude="package-lock.json" --exclude="node_modules" --exclude="tests" --exclude="test*.js" --exclude="e2e" --exclude="playwright.config.js" --exclude="test-results" --exclude="playwright-report" --exclude=".env.e2e" --exclude=".agents" --exclude="omnitime-overlay-bg.png" --exclude=".env" --exclude=".env.example" --exclude=".idea" --exclude=".vscode" --exclude="*.DS_Store" . "$BUILD_STAGE/"
 # Remove things we don't want in the build
 rm -rf "$BUILD_STAGE/$DIST_DIR"
 rm -rf "$BUILD_STAGE/.git"
@@ -62,6 +77,31 @@ if [ -n "$CLEAN_VERSION" ]; then
   
   # Update manifest_firefox.json
   sed "s/\"version\": \".*\"/\"version\": \"$CLEAN_VERSION\"/" "$BUILD_STAGE/manifest_firefox.json" > "$BUILD_STAGE/manifest_firefox.json.tmp" && mv "$BUILD_STAGE/manifest_firefox.json.tmp" "$BUILD_STAGE/manifest_firefox.json"
+fi
+
+# If it is a dev build, swap the OAuth client_id
+if [ "$DEV_MODE" -eq 1 ]; then
+  echo "Swapping to Dev OAuth Client ID..."
+  PUBLIC_ID="865706468431-nj649djh85hb1fve603321ks6n05art0.apps.googleusercontent.com"
+  DEV_ID="865706468431-0j1cpislgt0outf07ru5e3amu8mjlatv.apps.googleusercontent.com"
+  sed "s/$PUBLIC_ID/$DEV_ID/" "$BUILD_STAGE/manifest.json" > "$BUILD_STAGE/manifest.json.tmp" && mv "$BUILD_STAGE/manifest.json.tmp" "$BUILD_STAGE/manifest.json"
+fi
+
+# The UI's shadow root is closed in production (page scripts must not read or
+# drive it). Dev builds (and the e2e suite, which pierces the root) open it.
+# core.js ships with SHADOW_MODE_DEFAULT = 'closed'; fail loudly if the line moved.
+if [ "$DEV_MODE" -eq 1 ]; then
+  echo "Opening the shadow root (dev build)..."
+  sed "s/const SHADOW_MODE_DEFAULT = 'closed';/const SHADOW_MODE_DEFAULT = 'open';/" "$BUILD_STAGE/core.js" > "$BUILD_STAGE/core.js.tmp" && mv "$BUILD_STAGE/core.js.tmp" "$BUILD_STAGE/core.js"
+  if ! grep -q "const SHADOW_MODE_DEFAULT = 'open';" "$BUILD_STAGE/core.js"; then
+    echo "ERROR: could not set SHADOW_MODE_DEFAULT to 'open' in core.js" >&2
+    exit 1
+  fi
+else
+  if ! grep -q "const SHADOW_MODE_DEFAULT = 'closed';" "$BUILD_STAGE/core.js"; then
+    echo "ERROR: core.js must ship with SHADOW_MODE_DEFAULT = 'closed'" >&2
+    exit 1
+  fi
 fi
 
 echo "Building for Chrome ($CHROME_FILE)..."
